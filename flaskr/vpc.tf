@@ -46,6 +46,16 @@ resource "aws_subnet" "flaskr_private_subnet" {
   }
 }
 
+resource "aws_route_table" "flaskr_private_rt" {
+  vpc_id = aws_vpc.flaskr_vpc.id
+}
+
+resource "aws_route_table_association" "flaskr_private_rt_assoc" {
+  count          = 2
+  subnet_id      = element(aws_subnet.flaskr_private_subnet.*.id, count.index)
+  route_table_id = aws_route_table.flaskr_private_rt.id
+}
+
 # VPC Endpoints for ECR and other services
 resource "aws_vpc_endpoint" "ecr_dkr" {
   vpc_id            = aws_vpc.flaskr_vpc.id
