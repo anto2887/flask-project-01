@@ -4,7 +4,7 @@ resource "aws_db_instance" "flaskr_db" {
   storage_type        = "gp2"
   engine              = "postgres"
   engine_version      = "13"
-  instance_class      = "db.t2.micro"
+  instance_class      = "db.t3.micro"
   db_name             = "mydatabase"
   username            = "myuser"
   password            = "mypassword"
