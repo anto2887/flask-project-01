@@ -16,7 +16,7 @@ resource "aws_s3_bucket_policy" "alb_logs_policy" {
       {
         Effect = "Allow",
         Principal = {
-          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+          Service = "elasticloadbalancing.amazonaws.com"
         },
         Action = "s3:PutObject",
         Resource = "${aws_s3_bucket.alb_logs.arn}/*",
@@ -25,7 +25,7 @@ resource "aws_s3_bucket_policy" "alb_logs_policy" {
             "aws:SourceAccount" = "${data.aws_caller_identity.current.account_id}"
           },
           ArnLike = {
-            "aws:SourceArn" = "arn:aws:elasticloadbalancing:${var.region}:${data.aws_caller_identity.current.account_id}:loadbalancer/app/${aws_lb.flaskr_app_alb.name}/*"
+            "aws:SourceArn" = "arn:aws:elasticloadbalancing:${var.region}:${data.aws_caller_identity.current.account_id}:loadbalancer/*"
           }
         }
       }
