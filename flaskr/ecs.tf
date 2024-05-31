@@ -12,7 +12,7 @@ resource "aws_ecs_task_definition" "flaskr_app_task" {
   container_definitions = jsonencode([
     {
       name      = "flaskr-app"
-      image     = "<aws_account_id>.dkr.ecr.<region>.amazonaws.com/flaskr-app:latest"
+      image     = "193482034911.dkr.ecr.us-east-1.amazonaws.com/flaskr-app:latest"
       essential = true
       portMappings = [
         {
