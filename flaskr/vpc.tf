@@ -67,7 +67,7 @@ resource "aws_lb" "flaskr_app_alb" {
 
   access_logs {
     bucket  = aws_s3_bucket.alb_logs.bucket
-    prefix  = "flaskr-app-alb"
+    prefix  = "prefix/AWSLogs/193482034911"
     enabled = true
   }
 }
