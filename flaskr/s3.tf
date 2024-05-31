@@ -7,38 +7,28 @@ resource "aws_s3_bucket" "alb_logs" {
   }
 }
 
-resource "aws_s3_bucket_versioning" "alb_logs_versioning" {
+resource "aws_s3_bucket_policy" "alb_logs_policy" {
   bucket = aws_s3_bucket.alb_logs.id
 
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_lifecycle_configuration" "alb_logs_lifecycle" {
-  bucket = aws_s3_bucket.alb_logs.id
-
-  rule {
-    id     = "log"
-    status = "Enabled"
-
-    transition {
-      days          = 30
-      storage_class = "GLACIER"
-    }
-
-    expiration {
-      expired_object_delete_marker = false
-      days                         = 365
-    }
-
-    noncurrent_version_transition {
-      noncurrent_days = 30
-      storage_class   = "GLACIER"
-    }
-
-    noncurrent_version_expiration {
-      noncurrent_days = 365
-    }
-  }
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "logging.elb.amazonaws.com"
+        },
+        Action = "s3:PutObject",
+        Resource = "${aws_s3_bucket.alb_logs.arn}/*"
+      },
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "logging.elb.amazonaws.com"
+        },
+        Action = "s3:PutObject",
+        Resource = "${aws_s3_bucket.alb_logs.arn}"
+      }
+    ]
+  })
 }

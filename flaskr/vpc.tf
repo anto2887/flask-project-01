@@ -37,27 +37,6 @@ resource "aws_route_table_association" "flaskr_public_rt_assoc" {
   route_table_id = aws_route_table.flaskr_public_rt.id
 }
 
-resource "aws_subnet" "flaskr_private_subnet" {
-  count             = 2
-  vpc_id            = aws_vpc.flaskr_vpc.id
-  cidr_block        = cidrsubnet(aws_vpc.flaskr_vpc.cidr_block, 8, count.index + 2)
-  availability_zone = element(data.aws_availability_zones.available.names, count.index)
-
-  tags = {
-    Name = "flaskr-private-subnet-${count.index}"
-  }
-}
-
-resource "aws_route_table" "flaskr_private_rt" {
-  vpc_id = aws_vpc.flaskr_vpc.id
-}
-
-resource "aws_route_table_association" "flaskr_private_rt_assoc" {
-  count          = 2
-  subnet_id      = element(aws_subnet.flaskr_private_subnet.*.id, count.index)
-  route_table_id = aws_route_table.flaskr_private_rt.id
-}
-
 resource "aws_lb" "flaskr_app_alb" {
   name               = "flaskr-app-alb"
   internal           = false
