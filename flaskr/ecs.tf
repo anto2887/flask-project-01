@@ -37,6 +37,10 @@ resource "aws_iam_role" "ecs_task_role" {
   })
 }
 
+resource "aws_ecs_cluster" "flaskr_ecs_cluster" {
+  name = "flaskr-ecs-cluster"
+}
+
 resource "aws_ecs_task_definition" "flaskr_app_task" {
   family                   = "flaskr-app-task"
   network_mode             = "awsvpc"
