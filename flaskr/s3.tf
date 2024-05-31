@@ -19,7 +19,28 @@ resource "aws_s3_bucket_policy" "alb_logs_policy" {
           AWS = "arn:aws:iam::127311923021:root"
         },
         Action = "s3:PutObject",
-        Resource = "arn:aws:s3:::flaskr-app-alb-logs/AWSLogs/193482034911/*"
+        Resource = "arn:aws:s3:::flaskr-app-alb-logs/prefix/AWSLogs/193482034911/*"
+      },
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "delivery.logs.amazonaws.com"
+        },
+        Action = "s3:PutObject",
+        Resource = "arn:aws:s3:::flaskr-app-alb-logs/prefix/AWSLogs/193482034911/*",
+        Condition = {
+          StringEquals = {
+            "s3:x-amz-acl": "bucket-owner-full-control"
+          }
+        }
+      },
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "delivery.logs.amazonaws.com"
+        },
+        Action = "s3:GetBucketAcl",
+        Resource = "arn:aws:s3:::flaskr-app-alb-logs"
       }
     ]
   })
