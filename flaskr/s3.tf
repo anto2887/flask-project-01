@@ -19,7 +19,7 @@ resource "aws_s3_bucket_policy" "alb_logs_policy" {
           AWS = "arn:aws:iam::127311923021:root"
         },
         Action = "s3:PutObject",
-        Resource = "${aws_s3_bucket.alb_logs.arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+        Resource = "arn:aws:s3:::flaskr-app-alb-logs/AWSLogs/193482034911/*"
       }
     ]
   })
