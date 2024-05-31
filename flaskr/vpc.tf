@@ -2,6 +2,9 @@ resource "aws_vpc" "flaskr_vpc" {
   cidr_block = "10.0.0.0/16"
 }
 
+# Data source to fetch available availability zones
+data "aws_availability_zones" "available" {}
+
 resource "aws_subnet" "flaskr_public_subnet" {
   count                   = 2
   vpc_id                  = aws_vpc.flaskr_vpc.id
