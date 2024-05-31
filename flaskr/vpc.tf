@@ -64,12 +64,6 @@ resource "aws_lb" "flaskr_app_alb" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.flaskr_alb_sg.id]
   subnets            = aws_subnet.flaskr_public_subnet[*].id
-
-  access_logs {
-    bucket  = aws_s3_bucket.alb_logs.bucket
-    prefix  = "flaskr-app-alb-logs"
-    enabled = true
-  }
 }
 
 resource "aws_lb_target_group" "flaskr_app_tg" {
