@@ -91,7 +91,12 @@ resource "aws_ecs_task_definition" "flaskr_app_task" {
           value = "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/your_database_name"
         }
       ]
-      command = ["/usr/local/bin/wait-for-it.sh", "db:5432", "--", "/flaskr/entrypoint.sh"]
+      command = [
+        "/usr/local/bin/wait-for-it.sh",
+        "${aws_db_instance.flaskr_db.address}:5432",
+        "--",
+        "/flaskr/entrypoint.sh"
+      ]
     }
   ])
 }
