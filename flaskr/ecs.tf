@@ -42,9 +42,9 @@ resource "aws_ecs_cluster" "flaskr_ecs_cluster" {
 }
 
 # New local variable block to construct the SQLALCHEMY_DATABASE_URI
-locals {
-  sqlalchemy_database_uri = "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/your_database_name"
-}
+# locals {
+#   sqlalchemy_database_uri = "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/your_database_name"
+# }
 
 resource "aws_ecs_task_definition" "flaskr_app_task" {
   family                   = "flaskr-app-task"
@@ -92,10 +92,10 @@ resource "aws_ecs_task_definition" "flaskr_app_task" {
           value = "mypassword"
         },
         # Reference the local variable for SQLALCHEMY_DATABASE_URI
-        {
-          name  = "SQLALCHEMY_DATABASE_URI"
-          value = local.sqlalchemy_database_uri
-        }
+        # {
+        #   name  = "SQLALCHEMY_DATABASE_URI"
+        #   value = local.sqlalchemy_database_uri
+        # }
       ]
       command = [
         "/usr/local/bin/wait-for-it.sh",
