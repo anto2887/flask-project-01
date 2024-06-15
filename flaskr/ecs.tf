@@ -85,6 +85,10 @@ resource "aws_ecs_task_definition" "flaskr_app_task" {
         {
           name  = "DB_PASSWORD"
           value = "mypassword"
+        },
+        {
+          name  = "SQLALCHEMY_DATABASE_URI"
+          value = "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/your_database_name"
         }
       ]
       command = ["/usr/local/bin/wait-for-it.sh", "db:5432", "--", "/flaskr/entrypoint.sh"]
