@@ -41,6 +41,11 @@ resource "aws_ecs_cluster" "flaskr_ecs_cluster" {
   name = "flaskr-ecs-cluster"
 }
 
+# New local variable block to construct the SQLALCHEMY_DATABASE_URI
+locals {
+  sqlalchemy_database_uri = "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/your_database_name"
+}
+
 resource "aws_ecs_task_definition" "flaskr_app_task" {
   family                   = "flaskr-app-task"
   network_mode             = "awsvpc"
@@ -86,9 +91,10 @@ resource "aws_ecs_task_definition" "flaskr_app_task" {
           name  = "DB_PASSWORD"
           value = "mypassword"
         },
+        # Reference the local variable for SQLALCHEMY_DATABASE_URI
         {
           name  = "SQLALCHEMY_DATABASE_URI"
-          value = "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/your_database_name"
+          value = local.sqlalchemy_database_uri
         }
       ]
       command = [
