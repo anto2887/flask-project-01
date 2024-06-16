@@ -41,10 +41,21 @@ resource "aws_ecs_cluster" "flaskr_ecs_cluster" {
   name = "flaskr-ecs-cluster"
 }
 
-# New local variable block to construct the SQLALCHEMY_DATABASE_URI
-# locals {
-#   sqlalchemy_database_uri = "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/your_database_name"
-# }
+locals {
+  sqlalchemy_database_uri = "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/flaskrdb"
+  container_definitions   = templatefile("${path.module}/container_definitions.json.tpl", {
+    image                          = "193482034911.dkr.ecr.us-east-1.amazonaws.com/flaskr-app:latest"
+    awslogs_group                  = "/ecs/flaskr-app"
+    awslogs_region                 = var.region
+    awslogs_stream_prefix          = "ecs"
+    db_host                        = aws_db_instance.flaskr_db.address
+    db_port                        = "5432"
+    db_user                        = "myuser"
+    db_password                    = "mypassword"
+    sqlalchemy_database_uri        = "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/flaskrdb"
+    wait_for_it_db_host            = aws_db_instance.flaskr_db.address
+  })
+}
 
 resource "aws_ecs_task_definition" "flaskr_app_task" {
   family                   = "flaskr-app-task"
@@ -55,56 +66,7 @@ resource "aws_ecs_task_definition" "flaskr_app_task" {
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
   task_role_arn            = aws_iam_role.ecs_task_role.arn
 
-  container_definitions = jsonencode([
-    {
-      name      = "flaskr-app"
-      image     = "193482034911.dkr.ecr.us-east-1.amazonaws.com/flaskr-app:latest"
-      essential = true
-      portMappings = [
-        {
-          containerPort = 80
-          hostPort      = 80
-        }
-      ]
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          awslogs-group         = "/ecs/flaskr-app"
-          awslogs-region        = var.region
-          awslogs-stream-prefix = "ecs"
-        }
-      }
-      environment = [
-        {
-          name  = "DB_HOST"
-          value = aws_db_instance.flaskr_db.address
-        },
-        {
-          name  = "DB_PORT"
-          value = "5432"
-        },
-        {
-          name  = "DB_USER"
-          value = "myuser"
-        },
-        {
-          name  = "DB_PASSWORD"
-          value = "mypassword"
-        },
-        # Reference the local variable for SQLALCHEMY_DATABASE_URI
-        # {
-        #   name  = "SQLALCHEMY_DATABASE_URI"
-        #   value = local.sqlalchemy_database_uri
-        # }
-      ]
-      command = [
-        "/usr/local/bin/wait-for-it.sh",
-        "${aws_db_instance.flaskr_db.address}:5432",
-        "--",
-        "/flaskr/entrypoint.sh"
-      ]
-    }
-  ])
+  container_definitions = local.container_definitions
 }
 
 
