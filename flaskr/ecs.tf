@@ -98,6 +98,6 @@ resource "aws_ecs_service" "flaskr_ecs_service" {
   load_balancer {
     target_group_arn = aws_lb_target_group.flaskr_app_tg.arn
     container_name   = "flaskr-app"
-    container_port   = 5000 # Updated to match the container port defined in the task definition
+    container_port   = 80 # Updated to match the container port defined in the task definition
   }
 }
