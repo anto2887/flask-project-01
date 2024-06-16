@@ -46,7 +46,7 @@ locals {
   db_password = "mypassword"
   db_host = aws_db_instance.flaskr_db.address
   db_port = "5432"
-  sqlalchemy_database_uri = "postgresql://${db_user}:${db_password}@${db_host}:${db_port}/flaskrdb"
+  sqlalchemy_database_uri = "postgresql://${local.db_user}:${local.db_password}@${local.db_host}:${local.db_port}/flaskrdb"
   container_definitions = templatefile("${path.module}/container_definitions.json.tpl", {
     image                 = "193482034911.dkr.ecr.us-east-1.amazonaws.com/flaskr-app:latest"
     awslogs_group         = "/ecs/flaskr-app"
