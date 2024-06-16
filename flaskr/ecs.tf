@@ -42,6 +42,7 @@ resource "aws_ecs_cluster" "flaskr_ecs_cluster" {
 }
 
 locals {
+  sqlalchemy_database_uri = "postgresql://${db_user}:${db_password}@${db_host}:${db_port}/flaskrdb"
   container_definitions = templatefile("${path.module}/container_definitions.json.tpl", {
     image                 = "193482034911.dkr.ecr.us-east-1.amazonaws.com/flaskr-app:latest"
     awslogs_group         = "/ecs/flaskr-app"
@@ -51,6 +52,7 @@ locals {
     db_port               = "5432"
     db_user               = "myuser"
     db_password           = "mypassword"
+    sqlalchemy_database_uri = local.sqlalchemy_database_uri
   })
 }
 
