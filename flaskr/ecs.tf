@@ -70,6 +70,16 @@ resource "aws_ecs_task_definition" "flaskr_app_task" {
   task_role_arn            = aws_iam_role.ecs_task_role.arn
 
   container_definitions = local.container_definitions
+
+  # Add portMappings to map container port 5000 to host port 80
+  dynamic "port_mappings" {
+    for_each = [0]
+    content {
+      container_port = 5000
+      host_port      = 80
+      protocol       = "tcp"
+    }
+  }
 }
 
 resource "aws_ecs_service" "flaskr_ecs_service" {
@@ -88,6 +98,6 @@ resource "aws_ecs_service" "flaskr_ecs_service" {
   load_balancer {
     target_group_arn = aws_lb_target_group.flaskr_app_tg.arn
     container_name   = "flaskr-app"
-    container_port   = 80
+    container_port   = 5000 # Updated to match the container port defined in the task definition
   }
 }

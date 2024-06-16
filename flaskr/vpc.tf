@@ -75,8 +75,8 @@ resource "aws_lb_target_group" "flaskr_app_tg" {
 
   health_check {
     path                = "/"
-    interval            = 30
-    timeout             = 5
+    interval            = 60 // Increased from 30 seconds
+    timeout             = 10 // Increased from 5 seconds
     healthy_threshold   = 2
     unhealthy_threshold = 2
     matcher             = "200"
