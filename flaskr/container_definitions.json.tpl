@@ -41,7 +41,7 @@
     ],
     "command": [
       "/usr/local/bin/wait-for-it.sh",
-      "${wait_for_it_db_host}:5432",
+      "${db_host}:5432",
       "--",
       "/flaskr/entrypoint.sh"
     ]
