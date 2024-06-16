@@ -42,17 +42,15 @@ resource "aws_ecs_cluster" "flaskr_ecs_cluster" {
 }
 
 locals {
-  container_definitions   = templatefile("${path.module}/container_definitions.json.tpl", {
-    image                          = "193482034911.dkr.ecr.us-east-1.amazonaws.com/flaskr-app:latest"
-    awslogs_group                  = "/ecs/flaskr-app"
-    awslogs_region                 = var.region
-    awslogs_stream_prefix          = "ecs"
-    db_host                        = aws_db_instance.flaskr_db.address
-    db_port                        = "5432"
-    db_user                        = "myuser"
-    db_password                    = "mypassword"
-    sqlalchemy_database_uri        = "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/flaskrdb"
-    wait_for_it_db_host            = aws_db_instance.flaskr_db.address
+  container_definitions = templatefile("${path.module}/container_definitions.json.tpl", {
+    image                 = "193482034911.dkr.ecr.us-east-1.amazonaws.com/flaskr-app:latest"
+    awslogs_group         = "/ecs/flaskr-app"
+    awslogs_region        = var.region
+    awslogs_stream_prefix = "ecs"
+    db_host               = aws_db_instance.flaskr_db.address
+    db_port               = "5432"
+    db_user               = "myuser"
+    db_password           = "mypassword"
   })
 }
 
@@ -67,7 +65,6 @@ resource "aws_ecs_task_definition" "flaskr_app_task" {
 
   container_definitions = local.container_definitions
 }
-
 
 resource "aws_ecs_service" "flaskr_ecs_service" {
   name            = "flaskr-ecs-service"
