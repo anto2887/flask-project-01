@@ -71,15 +71,6 @@ resource "aws_ecs_task_definition" "flaskr_app_task" {
 
   container_definitions = local.container_definitions
 
-  # Add portMappings to map container port 5000 to host port 80
-  # dynamic "port_mappings" {
-  #   for_each = [0]
-  #   content {
-  #     container_port = 5000
-  #     host_port      = 80
-  #     protocol       = "tcp"
-  #   }
-  # }
 }
 
 resource "aws_ecs_service" "flaskr_ecs_service" {

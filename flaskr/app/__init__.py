@@ -63,13 +63,13 @@ def create_app(test_config=None):
 
     @app.route('/hello')
     def hello():
-        return 'Hello, World!'
+        return 'Hello, World'
 
     @app.route('/health')
     def health():
         return 'OK', 200
 
-    from . import auth, blog
+    from. import auth, blog
     app.register_blueprint(auth.bp)
     app.register_blueprint(blog.bp)
     app.add_url_rule('/', endpoint='index')

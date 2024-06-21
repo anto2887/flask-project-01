@@ -21,7 +21,7 @@ COPY entrypoint.sh /flaskr/entrypoint.sh
 # Provide the necessary permissions
 RUN chmod +x /usr/local/bin/wait-for-it.sh /flaskr/entrypoint.sh
 
-# Exposing port 5000 for the Flask app to listen on
+# Exposing port 80 for the Flask app to listen on
 EXPOSE 80
 
 # Setting Flask environment variables
