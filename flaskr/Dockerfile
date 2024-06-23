@@ -14,12 +14,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the necessary files and directories
 COPY . .
 
-# Copy the wait-for-it.sh and entrypoint.sh scripts to the appropriate locations
+# Copy the modified wait-for-it.sh script to the appropriate location
 COPY wait-for-it.sh /usr/local/bin/wait-for-it.sh
-COPY entrypoint.sh /flaskr/entrypoint.sh
-
 # Provide the necessary permissions
-RUN chmod +x /usr/local/bin/wait-for-it.sh /flaskr/entrypoint.sh
+RUN chmod +x /usr/local/bin/wait-for-it.sh
 
 # Exposing port 80 for the Flask app to listen on
 EXPOSE 80
@@ -29,5 +27,5 @@ ENV FLASK_APP=app
 ENV PYTHONPATH=/flaskr
 ENV CREATE_TABLES_ON_STARTUP=True
 
-# Command to run the application
-CMD ["/usr/local/bin/wait-for-it.sh", "db:5432", "--", "/flaskr/entrypoint.sh"]
+# Command to run the application, passing a notification command to wait-for-it.sh
+CMD ["/usr/local/bin/wait-for-it.sh", "db:5432", "--notify=echo Connection to db successful", "--", "/flaskr/entrypoint.sh"]

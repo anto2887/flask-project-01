@@ -18,6 +18,7 @@ Usage:
     -t TIMEOUT | --timeout=TIMEOUT
                                 Timeout in seconds, zero for no timeout
     -- COMMAND ARGS             Execute command with args after the test finishes
+    --notify=COMMAND           Command to execute upon successful connection
 USAGE
     exit 1
 }
@@ -116,6 +117,10 @@ do
         WAITFORIT_TIMEOUT="${1#*=}"
         shift 1
         ;;
+        --notify=*)
+        NOTIFY_COMMAND="${1#*=}"
+        shift 1
+        ;;
         --)
         shift
         WAITFORIT_CLI=("$@")
@@ -171,12 +176,15 @@ else
     fi
 fi
 
-if [[ $WAITFORIT_CLI != "" ]]; then
+if [[ $WAITFORIT_CLI!= "" ]]; then
     if [[ $WAITFORIT_RESULT -ne 0 && $WAITFORIT_STRICT -eq 1 ]]; then
         echoerr "$WAITFORIT_cmdname: strict mode, refusing to execute subprocess"
         exit $WAITFORIT_RESULT
     fi
     exec "${WAITFORIT_CLI[@]}"
 else
+    if [[! -z "$NOTIFY_COMMAND" ]]; then
+        eval "$NOTIFY_COMMAND"
+    fi
     exit $WAITFORIT_RESULT
 fi
