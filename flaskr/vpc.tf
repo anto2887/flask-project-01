@@ -68,7 +68,7 @@ resource "aws_lb" "flaskr_app_alb" {
 
 resource "aws_lb_target_group" "flaskr_app_tg" {
   name         = "flaskr-app-tg"
-  port         = 80
+  port         = 5000
   protocol     = "HTTP"
   vpc_id       = aws_vpc.flaskr_vpc.id
   target_type  = "ip"
