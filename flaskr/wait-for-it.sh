@@ -18,7 +18,7 @@ Usage:
     -t TIMEOUT | --timeout=TIMEOUT
                                 Timeout in seconds, zero for no timeout
     -- COMMAND ARGS             Execute command with args after the test finishes
-    --notify=COMMAND           Command to execute upon successful connection
+    --notify=COMMAND            Command to execute upon successful connection
 USAGE
     exit 1
 }
@@ -52,7 +52,6 @@ wait_for()
 
 wait_for_wrapper()
 {
-    # In order to support SIGINT during timeout: http://unix.stackexchange.com/a/57692
     if [[ $WAITFORIT_QUIET -eq 1 ]]; then
         timeout $WAITFORIT_BUSYTIMEFLAG $WAITFORIT_TIMEOUT $0 --quiet --child --host=$WAITFORIT_HOST --port=$WAITFORIT_PORT --timeout=$WAITFORIT_TIMEOUT &
     else
@@ -148,13 +147,13 @@ WAITFORIT_QUIET=${WAITFORIT_QUIET:-0}
 
 # Check to see if timeout is from busybox?
 WAITFORIT_TIMEOUT_PATH=$(type -p timeout)
-WAITFORIT_TIMEOUT_PATH=$(realpath $WAITFORIT_TIMEOUT_PATH 2>/dev/null || readlink -f $WAITFORIT_TIMEOUT_PATH)
-
+WAITFORIT_TIMEOUT_PATH=$(realpath $WAITFORIT_TIMEOUT_PATH 2>/dev/null || realpath $WAITFORIT_TIMEOUT_PATH)
 WAITFORIT_BUSYTIMEFLAG=""
+
 if [[ $WAITFORIT_TIMEOUT_PATH =~ "busybox" ]]; then
     WAITFORIT_ISBUSY=1
     # Check if busybox timeout uses -t flag
-    # (recent Alpine versions don't support -t anymore)
+    # (recent Alpine versions don't support -t flag anymore)
     if timeout &>/dev/stdout | grep -q -e '-t '; then
         WAITFORIT_BUSYTIMEFLAG="-t"
     fi
@@ -176,14 +175,14 @@ else
     fi
 fi
 
-if [[ $WAITFORIT_CLI!= "" ]]; then
+if [[ $WAITFORIT_CLI != "" ]]; then
     if [[ $WAITFORIT_RESULT -ne 0 && $WAITFORIT_STRICT -eq 1 ]]; then
         echoerr "$WAITFORIT_cmdname: strict mode, refusing to execute subprocess"
         exit $WAITFORIT_RESULT
     fi
     exec "${WAITFORIT_CLI[@]}"
 else
-    if [[! -z "$NOTIFY_COMMAND" ]]; then
+    if [[ ! -z "$NOTIFY_COMMAND" ]]; then
         eval "$NOTIFY_COMMAND"
     fi
     exit $WAITFORIT_RESULT
