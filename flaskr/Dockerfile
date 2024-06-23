@@ -19,8 +19,8 @@ COPY wait-for-it.sh /usr/local/bin/wait-for-it.sh
 # Provide the necessary permissions
 RUN chmod +x /usr/local/bin/wait-for-it.sh
 
-# Exposing port 80 for the Flask app to listen on
-EXPOSE 80
+# Exposing port 5000 for the Flask app to listen on
+EXPOSE 5000
 
 # Setting Flask environment variables
 ENV FLASK_APP=app

@@ -85,7 +85,7 @@ resource "aws_lb_target_group" "flaskr_app_tg" {
 
 resource "aws_lb_listener" "flaskr_app_listener" {
   load_balancer_arn = aws_lb.flaskr_app_alb.arn
-  port              = "80"
+  port              = "5000"
   protocol          = "HTTP"
   default_action {
     type             = "forward"
