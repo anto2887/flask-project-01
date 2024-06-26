@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: 'Arial', sans-serif;
-            background: url('https://example.com/soccer-field.jpg') no-repeat center center fixed;
+            background: url('{{ url_for("static", filename="pictures/soccer-pitch.jpeg") }}') no-repeat center center fixed;
             background-size: cover;
             display: flex;
             justify-content: center;
@@ -69,7 +69,7 @@
 </head>
 <body>
     <div class="login-container">
-        <img src="https://example.com/soccer-ball.png" alt="Soccer Ball">
+        <img src='{{ url_for("static", filename="pictures/soccer-ball.png") }}'' alt="Soccer Ball">
         <h1>PrdiktIt - Log In</h1>
         <form method="post">
             <label for="username">Username</label>
