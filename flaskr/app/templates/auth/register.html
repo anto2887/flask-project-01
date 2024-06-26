@@ -1,15 +1,86 @@
-{% extends 'base.html' %}
-
-{% block header %}
-  <h1>{% block title %}Register{% endblock %}</h1>
-{% endblock %}
-
-{% block content %}
-  <form method="post">
-    <label for="username">Username</label>
-    <input name="username" id="username" required>
-    <label for="password">Password</label>
-    <input type="password" name="password" id="password" required>
-    <input type="submit" value="Register">
-  </form>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrdiktIt - Register</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: url('/static/pictures/soccer_pitch.jpeg') no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .register-container {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 300px;
+        }
+        .register-container h1 {
+            color: #377ba8;
+            margin-bottom: 1rem;
+        }
+        .register-container img {
+            width: 50px;
+            height: 50px;
+            margin-bottom: 1rem;
+        }
+        .register-container label {
+            display: block;
+            margin: 1rem 0 0.5rem;
+            font-weight: bold;
+        }
+        .register-container input {
+            width: 100%;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .register-container input[type="submit"] {
+            background: #377ba8;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        .register-container input[type="submit"]:hover {
+            background: #2a5f7e;
+        }
+        .footer {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+        .footer a {
+            color: #377ba8;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <img src="/static/pictures/soccer-ball.png" alt="Soccer Ball">
+        <h1>PrdiktIt - Register</h1>
+        <form method="post">
+            <label for="username">Username</label>
+            <input name="username" id="username" required>
+            <label for="password">Password</label>
+            <input type="password" name="password" id="password" required>
+            <input type="submit" value="Register">
+        </form>
+        <div class="footer">
+            <a href="{{ url_for('auth.login') }}">Already have an account? Log In</a>
+        </div>
+    </div>
+</body>
+</html>

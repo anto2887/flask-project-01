@@ -23,10 +23,10 @@ def register():
 
         if error is None:
             try:
-                new_user = Users(username=username, password=generate_password_hash(password))  # Updated Users
+                new_user = Users(username=username, password=generate_password_hash(password))
                 db.session.add(new_user)
                 db.session.commit()
-            except Exception as e:  # Catching the generic exception for simplicity; adjust as necessary
+            except Exception as e:
                 error = f"User {username} is already registered."
             else:
                 return redirect(url_for("auth.login"))
