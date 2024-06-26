@@ -26,7 +26,7 @@ input.danger { color: #cc2f2e; }
 input[type=submit] { align-self: start; min-width: 10em; }
 
 body {
-    background: url('../static/pictures/soccer_field.jpg') no-repeat center center fixed;
+    background: url('../static/pictures/field.jpg') no-repeat center center fixed;
     background-size: cover;
 }
 

@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: 'Arial', sans-serif;
-            background: url('/static/pictures/soccer_pitch.jpeg') no-repeat center center fixed;
+            background: url('{{ url_for("static", filename="pictures/field.jpeg") }}') no-repeat center center fixed;
             background-size: cover;
             display: flex;
             justify-content: center;
@@ -69,7 +69,7 @@
 </head>
 <body>
     <div class="register-container">
-        <img src="/static/pictures/soccer-ball.png" alt="Soccer Ball">
+        <img src="{{ url_for('static', filename='pictures/soccer-ball.png') }}" alt="Soccer Ball">
         <h1>PrdiktIt - Register</h1>
         <form method="post">
             <label for="username">Username</label>
@@ -79,7 +79,7 @@
             <input type="submit" value="Register">
         </form>
         <div class="footer">
-            <a href="{{ url_for('auth.login') }}">Already have an account? Log In</a>
+            <a href="{{ url_for('auth.login') }}">Back to Log In</a>
         </div>
     </div>
 </body>
