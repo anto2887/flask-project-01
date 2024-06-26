@@ -92,3 +92,15 @@ resource "aws_lb_listener" "flaskr_app_listener" {
     target_group_arn = aws_lb_target_group.flaskr_app_tg.arn
   }
 }
+
+resource "aws_route53_record" "flaskr_alb" {
+  zone_id = "Z1013243V3H94OXCQ2KV"  # Replace with your Route 53 hosted zone ID
+  name    = "ops76.co"       # Replace with your domain name
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.flaskr_app_alb.dns_name
+    zone_id                = aws_lb.flaskr_app_alb.zone_id
+    evaluate_target_health = true
+  }
+}
