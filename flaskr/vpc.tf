@@ -85,7 +85,7 @@ resource "aws_lb_target_group" "flaskr_app_tg" {
 
 resource "aws_lb_listener" "flaskr_app_listener" {
   load_balancer_arn = aws_lb.flaskr_app_alb.arn
-  port              = "5000"
+  port              = "80"
   protocol          = "HTTP"
   default_action {
     type             = "forward"
@@ -95,7 +95,7 @@ resource "aws_lb_listener" "flaskr_app_listener" {
 
 resource "aws_route53_record" "flaskr_alb" {
   zone_id = "Z1013243V3H94OXCQ2KV"  # Replace with your Route 53 hosted zone ID
-  name    = "ops76.co"       # Replace with your domain name
+  name    = "ops76.co"              # Replace with your domain name
   type    = "A"
 
   alias {
