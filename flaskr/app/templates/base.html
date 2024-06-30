@@ -1,25 +1,85 @@
+<!-- Updated base.html -->
 <!doctype html>
-<title>{% block title %}{% endblock %} - Flaskr</title>
+<title>{% block title %}{% endblock %} - PrdiktIt</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <nav>
-  <h1>Flaskr</h1>
+  <h1>PrdiktIt</h1>
   <ul>
     {% if g.user %}
       <li><span>{{ g.user['username'] }}</span></li>
       <li><a href="{{ url_for('auth.logout') }}">Log Out</a></li>
-      <li><a href="{{ url_for('blog.create') }}">Create New Post</a></li>  <!-- New line added here -->
+      <li><a href="{{ url_for('blog.create') }}">Create New Post</a></li>
     {% else %}
       <li><a href="{{ url_for('auth.register') }}">Register</a></li>
       <li><a href="{{ url_for('auth.login') }}">Log In</a></li>
     {% endif %}
   </ul>
 </nav>
-<section class="content">
-  <header>
-    {% block header %}{% endblock %}
-  </header>
-  {% for message in get_flashed_messages() %}
-    <div class="flash">{{ message }}</div>
-  {% endfor %}
-  {% block content %}{% endblock %}
-</section>
+<div class="container">
+  <div class="sidebar">
+    <section class="user-results">
+      <h2>User Results</h2>
+      {% if user_results %}
+      <table>
+        <thead>
+          <tr>
+            <th>Match</th>
+            <th>Prediction</th>
+            <th>Result</th>
+            <th>Points</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for result in user_results %}
+          <tr>
+            <td>{{ result.match }}</td>
+            <td>{{ result.prediction }}</td>
+            <td>{{ result.result }}</td>
+            <td>{{ result.points }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p>No results yet.</p>
+      {% endif %}
+    </section>
+    <section class="prediction">
+      <h2>Enter your prediction!</h2>
+      <p>Instructions: Enter your predictions below. Separate each match prediction with a comma. Using anything else will leave your result unread by the app algo. An Example prediction format for a match week would be: Man Utd 5:0 Arsenal, Newcastle United 4:1 Liverpool, Chelsea 1:1 Man City.</p>
+      <form method="post" action="{{ url_for('blog.create') }}">
+        <textarea name="body" required></textarea>
+        <button type="submit">Post</button>
+      </form>
+    </section>
+    <section class="previous-predictions">
+      <h2>Previous Predictions</h2>
+      {% if previous_predictions %}
+      <ul>
+        {% for prediction in previous_predictions %}
+        <li>{{ prediction }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p>No previous predictions yet.</p>
+      {% endif %}
+    </section>
+  </div>
+  <div class="main-content">
+    <section class="forum">
+      <h2>Forum</h2>
+      <div class="messages">
+        {% for message in forum_messages %}
+        <div class="message">
+          <span class="username">{{ message.username }}</span>: {{ message.text }}
+        </div>
+        {% endfor %}
+      </div>
+      <form method="post" action="{{ url_for('forum.post_message') }}">
+        <input type="text" name="message" required>
+        <button type="submit">Send</button>
+      </form>
+    </section>
+  </div>
+</div>
+{% block content %}{% endblock %}
