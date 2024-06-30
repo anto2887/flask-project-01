@@ -34,20 +34,23 @@ def standardize_team_name(name):
             return standard
     return name  # Return the original name if no match is found
 
-def score_input(input_str=None): 
-    with app.app_context():   
+def score_input(input_str=None):
+    with app.app_context():
         # Fetch the latest 'body' entry from the 'post' table
         latest_post = db.session.query(Post).order_by(Post.created.desc()).first()
-    
+
         if not latest_post:
             return None  # No entry found
-    
+
         # If no input_str is provided, fetch from the latest post
         if input_str is None:
             input_str = latest_post.body
 
-        # Splitting the input by lines
-        lines = input_str.strip().split('\n')
+        # Splitting the input by lines and commas
+        if '\n' in input_str:
+            lines = input_str.strip().split('\n')
+        else:
+            lines = input_str.strip().split(',')
 
         # Ensure we don't process more than 5 lines
         if len(lines) > 5:
@@ -56,7 +59,7 @@ def score_input(input_str=None):
         results = []
 
         for line in lines:
-            match = re.match(r"(.+?)\s+(\d+:\d+)\s+(.+)", line)
+            match = re.match(r"(.+?)\s+(\d+:\d+)\s+(.+)", line.strip())
             if match:
                 team1 = standardize_team_name(match.group(1).strip())
                 score1, score2 = map(int, match.group(2).split(':'))
