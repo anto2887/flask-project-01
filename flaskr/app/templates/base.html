@@ -1,4 +1,4 @@
-<!-- Updated base.html -->
+<!-- base.html -->
 <!doctype html>
 <title>{% block title %}{% endblock %} - PrdiktIt</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -6,9 +6,10 @@
   <h1>PrdiktIt</h1>
   <ul>
     {% if g.user %}
-      <li><span>{{ g.user['username'] }}</span></li>
+      <li><span>{{ g.user.username }}</span></li>
       <li><a href="{{ url_for('auth.logout') }}">Log Out</a></li>
       <li><a href="{{ url_for('blog.create') }}">Create New Post</a></li>
+      <li><a href="{{ url_for('group.create_group') }}">Create Group</a></li>
     {% else %}
       <li><a href="{{ url_for('auth.register') }}">Register</a></li>
       <li><a href="{{ url_for('auth.login') }}">Log In</a></li>
@@ -31,7 +32,7 @@
         </thead>
         <tbody>
           {% for result in user_results %}
-          <tr>
+          <tr class="{{ 'correct' if result.correct else 'partial' if result.partial else 'wrong' }}">
             <td>{{ result.match }}</td>
             <td>{{ result.prediction }}</td>
             <td>{{ result.result }}</td>

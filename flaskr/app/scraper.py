@@ -3,18 +3,17 @@ import requests
 import pandas as pd
 from io import StringIO
 
-# URL mappings for different leagues
-LEAGUE_URLS = {
-    'Premier League': "https://fbref.com/en/comps/9/schedule/Premier-League-Scores-and-Fixtures",
-    'La Liga': "https://fbref.com/en/comps/12/schedule/La-Liga-Scores-and-Fixtures",
-    'UCL': "https://fbref.com/en/comps/8/schedule/Champions-League-Scores-and-Fixtures"
-}
-
 def table_scraper(n, league):
-    if league not in LEAGUE_URLS:
-        raise ValueError("Unsupported league.")
+    league_urls = {
+        "Premier League": "https://fbref.com/en/comps/9/schedule/Premier-League-Scores-and-Fixtures",
+        "La Liga": "https://fbref.com/en/comps/12/schedule/La-Liga-Scores-and-Fixtures",
+        "UCL": "https://fbref.com/en/comps/8/schedule/Champions-League-Scores-and-Fixtures"
+    }
 
-    standing_url = LEAGUE_URLS[league]
+    if league not in league_urls:
+        raise ValueError("Unsupported league")
+
+    standing_url = league_urls[league]
     data = requests.get(standing_url)
 
     matches = pd.read_html(StringIO(data.text), match="Scores & Fixtures")

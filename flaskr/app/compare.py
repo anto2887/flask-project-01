@@ -3,9 +3,8 @@ from app import app
 from fuzzywuzzy import process
 from app.date_utils import date_init
 from app.input import score_input
-from app.models import Post, UserResults, Group, db
+from app.models import Post, UserResults, db
 
-# Function to calculate points based on predictions
 def calculate_points(pred_score1, pred_score2, act_score1, act_score2):
     if pred_score1 == act_score1 and pred_score2 == act_score2:
         return 3
@@ -15,27 +14,16 @@ def calculate_points(pred_score1, pred_score2, act_score1, act_score2):
         return 1
     return 0
 
-def compare_and_update(group_id):
+def compare_and_update(group_id, league):
     with app.app_context():
         try:
-            group = Group.query.get(group_id)
-            if not group:
-                app.logger.info(f"No group found with ID: {group_id}")
-                return
-
-            scraped_data_list = date_init(group.league)
+            scraped_data_list = date_init(league)
             if scraped_data_list is None:
                 app.logger.info("No scraped data was found. Exiting the function early.")
                 return
 
             known_teams = [team for match in scraped_data_list for team in match]
-            sql_statement = '''
-                SELECT p.* FROM post p
-                WHERE p.group_id = :group_id AND p.id = (
-                    SELECT MAX(pp.id) FROM post pp WHERE pp.author_id = p.author_id
-                )
-            '''
-            posts = db.session.query(Post).from_statement(db.text(sql_statement)).params(group_id=group_id).all()
+            posts = Post.query.filter_by(group_id=group_id).all()
 
             if not posts:
                 app.logger.info("No posts found. Exiting the function early.")
@@ -60,10 +48,11 @@ def compare_and_update(group_id):
                     points_to_add = calculate_points(pred_score1, pred_score2, act_score1, act_score2)
                     user_result = UserResults.query.filter_by(author_id=post.author_id, group_id=group_id).first()
                     if not user_result:
-                        user_result = UserResults(author_id=post.author_id, points=0, group_id=group_id)
+                        user_result = UserResults(author_id=post.author_id, group_id=group_id, points=0)
                         db.session.add(user_result)
 
                     user_result.points += points_to_add
+
                     try:
                         db.session.commit()
                         db.session.refresh(user_result)

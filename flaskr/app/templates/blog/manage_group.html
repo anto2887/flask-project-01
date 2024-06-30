@@ -1,0 +1,46 @@
+<!-- manage_group.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Group</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Manage Group</h1>
+        <form method="post">
+            {{ form.hidden_tag() }}
+            <div>
+                {{ form.name.label }}<br>
+                {{ form.name(size=32) }}<br>
+                {% for error in form.name.errors %}
+                    <span style="color: red;">[{{ error }}]</span><br>
+                {% endfor %}
+            </div>
+            <div>
+                {{ form.league.label }}<br>
+                {% for field in form.league %}
+                    {{ field }} {{ field.label }}<br>
+                {% endfor %}
+                {% for error in form.league.errors %}
+                    <span style="color: red;">[{{ error }}]</span><br>
+                {% endfor %}
+            </div>
+            <div>
+                {{ form.users.label }}<br>
+                {% for field in form.users %}
+                    {{ field }} {{ field.label }}<br>
+                {% endfor %}
+                {% for error in form.users.errors %}
+                    <span style="color: red;">[{{ error }}]</span><br>
+                {% endfor %}
+            </div>
+            <div>
+                {{ form.submit() }}
+            </div>
+        </form>
+    </div>
+</body>
+</html>
