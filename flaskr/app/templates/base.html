@@ -93,6 +93,12 @@
                         {% endfor %}
                     </select>
                     <select>
+                        <option>Select Season</option>
+                        {% for season in seasons %}
+                            <option value="{{ season.id }}">{{ season.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <select>
                         <option>Select Matchday</option>
                         {% for matchday in matchdays %}
                             <option value="{{ matchday.id }}">{{ matchday.name }}</option>

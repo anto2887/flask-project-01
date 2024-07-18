@@ -121,7 +121,12 @@ select {
 }
 
 .filters select {
-    width: 48%;
+    width: 32%;
+    margin-right: 2%;
+}
+
+.filters select:last-child {
+    margin-right: 0;
 }
 
 .points {
