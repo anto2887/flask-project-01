@@ -29,41 +29,41 @@
             <div class="top-section card">
                 <div class="user-results">
                     <h2>User Results</h2>
-                    <select>
-                        <option>Select Group</option>
-                        {% for group in user_groups %}
-                            <option value="{{ group.id }}">{{ group.name }}</option>
-                        {% endfor %}
-                    </select>
-                    {% if user_results %}
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Match</th>
-                                    <th>Prediction</th>
-                                    <th>Result</th>
-                                    <th>Points</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for result in user_results %}
-                                <tr class="{{ 'correct' if result.correct else 'partial' if result.partial else 'wrong' }}">
-                                    <td>{{ result.match }}</td>
-                                    <td>{{ result.prediction }}</td>
-                                    <td>{{ result.result }}</td>
-                                    <td class="points">{{ result.points }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    {% else %}
-                        <p>No results yet.</p>
-                    {% endif %}
+                    <div class="filters">
+                        <select id="groupFilter">
+                            <option value="">Select Group</option>
+                            {% for group in user_groups %}
+                                <option value="{{ group.id }}">{{ group.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <select id="seasonFilter">
+                            <option value="">Select Season</option>
+                            {% for season in seasons %}
+                                <option value="{{ season }}">{{ season }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <table id="resultsTable">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Points</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>{{ user.username }}</td>
+                                <td class="points">{{ user_points.get(user.id, 0) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
                 <div class="recent-prediction">
                     <h2>Your Recent Prediction</h2>
                     {% if recent_prediction %}
-                        <p>{{ recent_prediction }}</p>
+                        <p>{{ recent_prediction.body }}</p>
                     {% else %}
                         <p>No recent predictions.</p>
                     {% endif %}
@@ -95,7 +95,7 @@
                     <select>
                         <option>Select Season</option>
                         {% for season in seasons %}
-                            <option value="{{ season.id }}">{{ season.name }}</option>
+                            <option value="{{ season }}">{{ season }}</option>
                         {% endfor %}
                     </select>
                     <select>
@@ -132,5 +132,32 @@
 
         {% block content %}{% endblock %}
     </div>
+
+    <script>
+        document.getElementById('groupFilter').addEventListener('change', updateResults);
+        document.getElementById('seasonFilter').addEventListener('change', updateResults);
+
+        function updateResults() {
+            const groupId = document.getElementById('groupFilter').value;
+            const season = document.getElementById('seasonFilter').value;
+
+            fetch(`/get_filtered_results?group_id=${groupId}&season=${season}`)
+                .then(response => response.json())
+                .then(data => {
+                    const tableBody = document.querySelector('#resultsTable tbody');
+                    tableBody.innerHTML = '';  // Clear existing rows
+
+                    data.forEach(user => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${user.username}</td>
+                            <td class="points">${user.points}</td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                })
+                .catch(error => console.error('Error:', error));
+        }
+    </script>
 </body>
 </html>
