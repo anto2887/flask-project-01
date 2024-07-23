@@ -117,26 +117,11 @@ select {
 .filters {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 .filters select {
     width: 32%;
-    margin-right: 2%;
-}
-
-.filters select:last-child {
-    margin-right: 0;
-}
-
-.top-performers .filters {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 15px;
-}
-
-.top-performers .filters select {
-    width: 48%;
 }
 
 .points {
@@ -147,6 +132,36 @@ select {
 .correct { background-color: #d4edda; }
 .partial { background-color: #fff3cd; }
 .wrong { background-color: #f8d7da; }
+
+.top-performers .filters select,
+.bottom-section .filters select {
+    width: 32%;
+}
+
+#topPerformersList {
+    padding-left: 20px;
+}
+
+#topPerformersList li {
+    margin-bottom: 10px;
+}
+
+#previousPredictionsTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#previousPredictionsTable th,
+#previousPredictionsTable td {
+    padding: 10px;
+    border: 1px solid var(--light-turquoise);
+    text-align: left;
+}
+
+#previousPredictionsTable th {
+    background-color: var(--medium-blue);
+    color: white;
+}
 
 textarea {
     width: 100%;

@@ -96,47 +96,41 @@
             <div class="bottom-section card">
                 <h2>Previous Predictions</h2>
                 <div class="filters">
-                    <select>
-                        <option>Select Group</option>
+                    <select id="previousPredictionsGroupFilter">
+                        <option value="">All Groups</option>
                         {% for group in user_groups %}
                             <option value="{{ group.id }}">{{ group.name }}</option>
                         {% endfor %}
                     </select>
-                    <select>
-                        <option>Select Season</option>
+                    <select id="previousPredictionsSeasonFilter">
+                        <option value="">All Seasons</option>
                         {% for season in seasons %}
                             <option value="{{ season }}">{{ season }}</option>
                         {% endfor %}
                     </select>
-                    <select>
-                        <option>Select Matchday</option>
+                    <select id="previousPredictionsMatchdayFilter">
+                        <option value="">All Matchdays</option>
                         {% for matchday in matchdays %}
                             <option value="{{ matchday }}">Matchday {{ matchday }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                {% if previous_predictions %}
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Matchday</th>
-                                <th>Prediction</th>
-                                <th>Points Earned</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for prediction in previous_predictions %}
-                            <tr>
-                                <td>{{ prediction.matchday }}</td>
-                                <td>{{ prediction.prediction }}</td>
-                                <td class="points">{{ prediction.points }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    <p>No previous predictions yet.</p>
-                {% endif %}
+                <table id="previousPredictionsTable">
+                    <thead>
+                        <tr>
+                            <th>Prediction</th>
+                            <th>Points</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prediction in previous_predictions %}
+                        <tr>
+                            <td>{{ prediction.team1 }} {{ prediction.score1 }} - {{ prediction.score2 }} {{ prediction.team2 }}</td>
+                            <td class="points">{{ prediction.points }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         {% endif %}
 
@@ -148,6 +142,9 @@
         document.getElementById('seasonFilter').addEventListener('change', updateResults);
         document.getElementById('topPerformersGroupFilter').addEventListener('change', updateTopPerformers);
         document.getElementById('topPerformersMatchdayFilter').addEventListener('change', updateTopPerformers);
+        document.getElementById('previousPredictionsGroupFilter').addEventListener('change', updatePreviousPredictions);
+        document.getElementById('previousPredictionsSeasonFilter').addEventListener('change', updatePreviousPredictions);
+        document.getElementById('previousPredictionsMatchdayFilter').addEventListener('change', updatePreviousPredictions);
 
         function updateResults() {
             const groupId = document.getElementById('groupFilter').value;
@@ -185,6 +182,29 @@
                         const listItem = document.createElement('li');
                         listItem.innerHTML = `${performer.username} - <span class="points">${performer.points} points</span>`;
                         performersList.appendChild(listItem);
+                    });
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function updatePreviousPredictions() {
+            const groupId = document.getElementById('previousPredictionsGroupFilter').value;
+            const season = document.getElementById('previousPredictionsSeasonFilter').value;
+            const matchday = document.getElementById('previousPredictionsMatchdayFilter').value;
+
+            fetch(`/get_previous_predictions?group_id=${groupId}&season=${season}&matchday=${matchday}`)
+                .then(response => response.json())
+                .then(data => {
+                    const tableBody = document.querySelector('#previousPredictionsTable tbody');
+                    tableBody.innerHTML = '';  // Clear existing rows
+
+                    data.forEach(prediction => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${prediction.team1} ${prediction.score1} - ${prediction.score2} ${prediction.team2}</td>
+                            <td class="points">${prediction.points}</td>
+                        `;
+                        tableBody.appendChild(row);
                     });
                 })
                 .catch(error => console.error('Error:', error));

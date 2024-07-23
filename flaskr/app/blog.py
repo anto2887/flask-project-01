@@ -48,6 +48,9 @@ def index():
     current_week = max(matchdays) if matchdays else None
     top_performers = get_top_performers(current_week)
 
+    # Get previous predictions
+    previous_predictions = UserPredictions.query.filter_by(author_id=g.user.id).order_by(UserPredictions.week.desc()).limit(10).all()
+
     return render_template('blog/index.html', 
                            users=users,
                            user_points=user_points,
@@ -55,7 +58,8 @@ def index():
                            user_groups=user_groups,
                            seasons=seasons,
                            matchdays=matchdays,
-                           top_performers=top_performers)
+                           top_performers=top_performers,
+                           previous_predictions=previous_predictions)
 
 @bp.route('/get_filtered_results')
 @login_required
@@ -120,6 +124,38 @@ def get_top_performers(matchday=None, group_id=None):
         {'username': result.username, 'points': int(result.total_points)}
         for result in results
     ]
+
+@bp.route('/get_previous_predictions')
+@login_required
+def get_previous_predictions():
+    group_id = request.args.get('group_id')
+    season = request.args.get('season')
+    matchday = request.args.get('matchday')
+
+    query = UserPredictions.query.filter_by(author_id=g.user.id)
+
+    if group_id:
+        query = query.join(UserGroup, UserPredictions.author_id == UserGroup.user_id)
+        query = query.filter(UserGroup.group_id == group_id)
+    
+    if season:
+        query = query.filter(UserPredictions.season == season)
+    
+    if matchday:
+        query = query.filter(UserPredictions.week == matchday)
+
+    predictions = query.order_by(UserPredictions.week.desc()).all()
+
+    return jsonify([
+        {
+            'team1': prediction.team1,
+            'score1': prediction.score1,
+            'team2': prediction.team2,
+            'score2': prediction.score2,
+            'points': prediction.points
+        }
+        for prediction in predictions
+    ])
 
 @bp.route('/create', methods=('GET', 'POST'))
 @login_required
