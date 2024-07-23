@@ -72,15 +72,25 @@
 
             <div class="top-performers card">
                 <h2>Top Performers This Week</h2>
-                {% if top_performers %}
-                    <ol>
-                        {% for performer in top_performers %}
-                            <li>{{ performer.name }} - <span class="points">{{ performer.points }} points</span></li>
+                <div class="filters">
+                    <select id="topPerformersGroupFilter">
+                        <option value="">All Groups</option>
+                        {% for group in user_groups %}
+                            <option value="{{ group.id }}">{{ group.name }}</option>
                         {% endfor %}
-                    </ol>
-                {% else %}
-                    <p>No top performers data available.</p>
-                {% endif %}
+                    </select>
+                    <select id="topPerformersMatchdayFilter">
+                        <option value="">All Matchdays</option>
+                        {% for matchday in matchdays %}
+                            <option value="{{ matchday }}">Matchday {{ matchday }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <ol id="topPerformersList">
+                    {% for performer in top_performers %}
+                        <li>{{ performer.username }} - <span class="points">{{ performer.points }} points</span></li>
+                    {% endfor %}
+                </ol>
             </div>
 
             <div class="bottom-section card">
@@ -101,7 +111,7 @@
                     <select>
                         <option>Select Matchday</option>
                         {% for matchday in matchdays %}
-                            <option value="{{ matchday.id }}">{{ matchday.name }}</option>
+                            <option value="{{ matchday }}">Matchday {{ matchday }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -136,6 +146,8 @@
     <script>
         document.getElementById('groupFilter').addEventListener('change', updateResults);
         document.getElementById('seasonFilter').addEventListener('change', updateResults);
+        document.getElementById('topPerformersGroupFilter').addEventListener('change', updateTopPerformers);
+        document.getElementById('topPerformersMatchdayFilter').addEventListener('change', updateTopPerformers);
 
         function updateResults() {
             const groupId = document.getElementById('groupFilter').value;
@@ -154,6 +166,25 @@
                             <td class="points">${user.points}</td>
                         `;
                         tableBody.appendChild(row);
+                    });
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function updateTopPerformers() {
+            const groupId = document.getElementById('topPerformersGroupFilter').value;
+            const matchday = document.getElementById('topPerformersMatchdayFilter').value;
+
+            fetch(`/get_top_performers?group_id=${groupId}&matchday=${matchday}`)
+                .then(response => response.json())
+                .then(data => {
+                    const performersList = document.getElementById('topPerformersList');
+                    performersList.innerHTML = '';  // Clear existing items
+
+                    data.forEach(performer => {
+                        const listItem = document.createElement('li');
+                        listItem.innerHTML = `${performer.username} - <span class="points">${performer.points} points</span>`;
+                        performersList.appendChild(listItem);
                     });
                 })
                 .catch(error => console.error('Error:', error));

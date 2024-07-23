@@ -129,6 +129,16 @@ select {
     margin-right: 0;
 }
 
+.top-performers .filters {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.top-performers .filters select {
+    width: 48%;
+}
+
 .points {
     color: var(--medium-blue);
     font-weight: bold;

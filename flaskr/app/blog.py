@@ -40,12 +40,22 @@ def index():
     # Get the most recent prediction
     recent_prediction = Post.query.filter_by(author_id=g.user.id).order_by(Post.created.desc()).first()
 
+    # Get available matchdays
+    matchdays = db.session.query(UserPredictions.week.distinct()).order_by(UserPredictions.week).all()
+    matchdays = [matchday[0] for matchday in matchdays]
+
+    # Get top performers for the current week
+    current_week = max(matchdays) if matchdays else None
+    top_performers = get_top_performers(current_week)
+
     return render_template('blog/index.html', 
                            users=users,
                            user_points=user_points,
                            recent_prediction=recent_prediction,
                            user_groups=user_groups,
-                           seasons=seasons)
+                           seasons=seasons,
+                           matchdays=matchdays,
+                           top_performers=top_performers)
 
 @bp.route('/get_filtered_results')
 @login_required
@@ -76,6 +86,40 @@ def get_filtered_results():
         {'username': result.username, 'points': int(result.total_points)}
         for result in results
     ])
+
+@bp.route('/get_top_performers')
+@login_required
+def get_top_performers_route():
+    group_id = request.args.get('group_id')
+    matchday = request.args.get('matchday')
+    
+    top_performers = get_top_performers(matchday, group_id)
+    
+    return jsonify(top_performers)
+
+def get_top_performers(matchday=None, group_id=None):
+    query = db.session.query(
+        Users.username,
+        func.sum(UserPredictions.points).label('total_points')
+    ).join(UserPredictions, Users.id == UserPredictions.author_id)
+    
+    if group_id:
+        query = query.join(UserGroup, Users.id == UserGroup.user_id)
+        query = query.filter(UserGroup.group_id == group_id)
+    
+    if matchday:
+        query = query.filter(UserPredictions.week == matchday)
+    
+    query = query.group_by(Users.username)
+    query = query.order_by(func.sum(UserPredictions.points).desc())
+    query = query.limit(3)
+
+    results = query.all()
+
+    return [
+        {'username': result.username, 'points': int(result.total_points)}
+        for result in results
+    ]
 
 @bp.route('/create', methods=('GET', 'POST'))
 @login_required
