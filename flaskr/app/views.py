@@ -6,26 +6,24 @@ from app.forms import CreateGroupForm
 
 group_bp = Blueprint('group', __name__, url_prefix='/group')
 
+group_bp = Blueprint('group', __name__, url_prefix='/group')
+
 @group_bp.route('/create', methods=['GET', 'POST'])
 @login_required
 def create_group():
     form = CreateGroupForm()
-    form.users.choices = [(user.id, user.username) for user in Users.query.all()]
+    users = Users.query.all()
 
     if form.validate_on_submit():
-        group = Group(name=form.name.data, league=form.league.data, creator_id=current_user.id)
-        db.session.add(group)
-        db.session.commit()
-
-        for user_id in form.users.data:
-            user_group = UserGroup(user_id=user_id, group_id=group.id)
-            db.session.add(user_group)
-
+        new_group = Group(name=form.name.data, league=form.league.data)
+        selected_users = Users.query.filter(Users.id.in_(request.form.getlist('selected_users'))).all()
+        new_group.users = selected_users
+        db.session.add(new_group)
         db.session.commit()
         flash('Group created successfully!', 'success')
-        return redirect(url_for('main.index'))
+        return redirect(url_for('blog.index'))
 
-    return render_template('create_group.html', form=form)
+    return render_template('create_group.html', form=form, users=users)
 
 @group_bp.route('/<int:group_id>/manage', methods=['GET', 'POST'])
 @login_required

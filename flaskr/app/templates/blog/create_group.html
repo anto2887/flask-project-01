@@ -1,46 +1,64 @@
-<!-- create_group.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Group</title>
+    <title>Create Group - PrdiktIt</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <nav>
+        <div class="container">
+            <h1>PrdiktIt</h1>
+            <ul>
+                {% if g.user %}
+                    <li><span>{{ g.user.username }}</span></li>
+                    <li><a href="{{ url_for('auth.logout') }}">Log Out</a></li>
+                    <li><a href="{{ url_for('blog.create') }}">Post Prediction</a></li>
+                    <li><a href="{{ url_for('group.create_group') }}">Create Group</a></li>
+                {% else %}
+                    <li><a href="{{ url_for('auth.register') }}">Register</a></li>
+                    <li><a href="{{ url_for('auth.login') }}">Log In</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
     <div class="container">
-        <h1>Create Group</h1>
-        <form method="post">
-            {{ form.hidden_tag() }}
-            <div>
-                {{ form.name.label }}<br>
-                {{ form.name(size=32) }}<br>
-                {% for error in form.name.errors %}
-                    <span style="color: red;">[{{ error }}]</span><br>
-                {% endfor %}
-            </div>
-            <div>
-                {{ form.league.label }}<br>
-                {% for field in form.league %}
-                    {{ field }} {{ field.label }}<br>
-                {% endfor %}
-                {% for error in form.league.errors %}
-                    <span style="color: red;">[{{ error }}]</span><br>
-                {% endfor %}
-            </div>
-            <div>
-                {{ form.users.label }}<br>
-                {% for field in form.users %}
-                    {{ field }} {{ field.label }}<br>
-                {% endfor %}
-                {% for error in form.users.errors %}
-                    <span style="color: red;">[{{ error }}]</span><br>
-                {% endfor %}
-            </div>
-            <div>
-                {{ form.submit() }}
-            </div>
-        </form>
+        <div class="card">
+            <h2>Create Group</h2>
+            <form method="POST">
+                {{ form.hidden_tag() }}
+                <div class="form-group">
+                    {{ form.name.label }}
+                    {{ form.name(size=32) }}
+                    {% for error in form.name.errors %}
+                        <span class="error">{{ error }}</span>
+                    {% endfor %}
+                </div>
+                <div class="form-group">
+                    {{ form.league.label }}
+                    {{ form.league }}
+                    {% for error in form.league.errors %}
+                        <span class="error">{{ error }}</span>
+                    {% endfor %}
+                </div>
+                <div class="form-group">
+                    <label>Select Users</label>
+                    <div class="user-list">
+                        {% for user in users %}
+                            <div class="user-item">
+                                <input type="checkbox" name="selected_users" value="{{ user.id }}" id="user_{{ user.id }}">
+                                <label for="user_{{ user.id }}">{{ user.username }}</label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="form-group">
+                    {{ form.submit(class="btn") }}
+                </div>
+            </form>
+        </div>
     </div>
 </body>
 </html>

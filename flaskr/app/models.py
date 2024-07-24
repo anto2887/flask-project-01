@@ -1,6 +1,11 @@
 from datetime import datetime
 from app.db import db
 
+user_groups = db.Table('user_groups',
+    db.Column('user_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
+    db.Column('group_id', db.Integer, db.ForeignKey('groups.id'), primary_key=True)
+)
+
 class Users(db.Model):
     __tablename__ = 'users'
 
@@ -10,7 +15,15 @@ class Users(db.Model):
     posts = db.relationship('Post', backref='author', lazy=True)
     results = db.relationship('UserResults', backref='author', lazy=True)
     predictions = db.relationship('UserPredictions', backref='author', lazy=True)
+    groups = db.relationship('Group', secondary=user_groups, back_populates='users')
 
+class Group(db.Model):
+    __tablename__ = 'groups'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, nullable=False)
+    league = db.Column(db.String, nullable=False)
+    users = db.relationship('Users', secondary=user_groups, back_populates='groups')
 class Post(db.Model):
     __tablename__ = 'post'
 

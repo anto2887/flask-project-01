@@ -8,7 +8,10 @@ from sqlalchemy import create_engine
 from flask.cli import with_appcontext
 
 from app.db import db
-from app.models import Users, Post, UserResults  # Import your models here
+from app.models import Users, Post, UserResults
+
+# from .views import group_bp
+# app.register_blueprint(group_bp)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
