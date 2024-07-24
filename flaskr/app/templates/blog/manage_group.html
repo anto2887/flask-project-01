@@ -1,46 +1,44 @@
-<!-- manage_group.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Group</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <div class="container">
-        <h1>Manage Group</h1>
-        <form method="post">
-            {{ form.hidden_tag() }}
-            <div>
-                {{ form.name.label }}<br>
-                {{ form.name(size=32) }}<br>
-                {% for error in form.name.errors %}
-                    <span style="color: red;">[{{ error }}]</span><br>
-                {% endfor %}
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>Manage Your Groups</h2>
+    {% if groups %}
+        {% for group in groups %}
+            <div class="card">
+                <h3>{{ group.name }} ({{ group.league }})</h3>
+                <form method="POST" action="{{ url_for('group.manage_groups') }}">
+                    <input type="hidden" name="group_id" value="{{ group.id }}">
+                    <div class="form-group">
+                        <label for="name_{{ group.id }}">Group Name</label>
+                        <input type="text" id="name_{{ group.id }}" name="name" value="{{ group.name }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="league_{{ group.id }}">League</label>
+                        <select id="league_{{ group.id }}" name="league" required>
+                            <option value="Premier League" {% if group.league == 'Premier League' %}selected{% endif %}>Premier League</option>
+                            <option value="La Liga" {% if group.league == 'La Liga' %}selected{% endif %}>La Liga</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Group Members</label>
+                        <div class="user-list">
+                            {% for user in users %}
+                                <div>
+                                    <input type="checkbox" name="selected_users" value="{{ user.id }}" id="user_{{ group.id }}_{{ user.id }}"
+                                           {% if user in group.users %}checked{% endif %}>
+                                    <label for="user_{{ group.id }}_{{ user.id }}">{{ user.username }}</label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <button type="submit" class="btn">Update Group</button>
+                </form>
             </div>
-            <div>
-                {{ form.league.label }}<br>
-                {% for field in form.league %}
-                    {{ field }} {{ field.label }}<br>
-                {% endfor %}
-                {% for error in form.league.errors %}
-                    <span style="color: red;">[{{ error }}]</span><br>
-                {% endfor %}
-            </div>
-            <div>
-                {{ form.users.label }}<br>
-                {% for field in form.users %}
-                    {{ field }} {{ field.label }}<br>
-                {% endfor %}
-                {% for error in form.users.errors %}
-                    <span style="color: red;">[{{ error }}]</span><br>
-                {% endfor %}
-            </div>
-            <div>
-                {{ form.submit() }}
-            </div>
-        </form>
-    </div>
-</body>
-</html>
+        {% endfor %}
+    {% else %}
+        <p>You haven't created any groups yet.</p>
+    {% endif %}
+    <a href="{{ url_for('group.create_group') }}" class="btn">Create New Group</a>
+</div>
+{% endblock %}

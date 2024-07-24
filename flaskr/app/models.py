@@ -16,6 +16,7 @@ class Users(db.Model):
     results = db.relationship('UserResults', backref='author', lazy=True)
     predictions = db.relationship('UserPredictions', backref='author', lazy=True)
     groups = db.relationship('Group', secondary=user_groups, back_populates='users')
+    created_groups = db.relationship('Group', backref='creator', lazy=True)
 
 class Group(db.Model):
     __tablename__ = 'groups'
@@ -23,7 +24,9 @@ class Group(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
     league = db.Column(db.String, nullable=False)
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     users = db.relationship('Users', secondary=user_groups, back_populates='groups')
+
 class Post(db.Model):
     __tablename__ = 'post'
 
