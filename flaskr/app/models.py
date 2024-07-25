@@ -36,6 +36,7 @@ class Post(db.Model):
     body = db.Column(db.Text, nullable=False)
     week = db.Column(db.Integer, nullable=False)
     season = db.Column(db.String, nullable=False)
+    processed = db.Column(db.Boolean, default=False, nullable=False)
 
 class UserResults(db.Model):
     __tablename__ = 'user_results'

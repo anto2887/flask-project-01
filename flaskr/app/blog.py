@@ -199,20 +199,23 @@ def get_post(id, check_author=True):
 def update(id):
     post = get_post(id)
 
+    if post.processed:
+        flash('This prediction has already been processed and cannot be edited.')
+        return redirect(url_for('blog.index'))
+
     if request.method == 'POST':
-        title = request.form['title']
         body = request.form['body']
         error = None
 
-        if not title:
-            error = 'Title is required.'
+        if not body:
+            error = 'Prediction is required.'
 
         if error is not None:
             flash(error)
         else:
-            post.title = title
             post.body = body
             db.session.commit()
+            flash('Your prediction has been updated.')
             return redirect(url_for('blog.index'))
 
     return render_template('blog/update.html', post=post)
