@@ -4,82 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PrdiktIt - Log In</title>
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background: url('{{ url_for("static", filename="pictures/field.jpeg") }}') no-repeat center center fixed;
-            background-size: cover;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .login-container {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            width: 300px;
-        }
-        .login-container h1 {
-            color: #377ba8;
-            margin-bottom: 1rem;
-        }
-        .login-container img {
-            width: 50px;
-            height: 50px;
-            margin-bottom: 1rem;
-        }
-        .login-container label {
-            display: block;
-            margin: 1rem 0 0.5rem;
-            font-weight: bold;
-        }
-        .login-container input {
-            width: 100%;
-            padding: 0.5rem;
-            margin-bottom: 1rem;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        .login-container input[type="submit"] {
-            background: #377ba8;
-            color: white;
-            border: none;
-            cursor: pointer;
-            transition: background 0.3s ease;
-        }
-        .login-container input[type="submit"]:hover {
-            background: #2a5f7e;
-        }
-        .footer {
-            margin-top: 1rem;
-            font-size: 0.9rem;
-        }
-        .footer a {
-            color: #377ba8;
-            text-decoration: none;
-        }
-        .footer a:hover {
-            text-decoration: underline;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="login-container">
-        <img src="{{ url_for('static', filename='pictures/soccer-ball.png') }}" alt="Soccer Ball">
-        <h1>PrdiktIt - Log In</h1>
-        <form method="post">
-            <label for="username">Username</label>
-            <input name="username" id="username" required>
-            <label for="password">Password</label>
-            <input type="password" name="password" id="password" required>
-            <input type="submit" value="Log In">
-        </form>
-        <div class="footer">
-            <a href="{{ url_for('auth.register') }}">Create Account</a> | <a href="/reset-password">Forgot Password?</a>
+    <div class="container">
+        <div class="card login-container">
+            <img src="{{ url_for('static', filename='pictures/soccer-ball.png') }}" alt="Soccer Ball" class="logo">
+            <h2>PrdiktIt - Log In</h2>
+            <form method="post">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn">Log In</button>
+                </div>
+            </form>
+            <div class="footer">
+                <a href="{{ url_for('auth.register') }}">Create Account</a> | 
+                <a href="/reset-password">Forgot Password?</a>
+            </div>
         </div>
     </div>
 </body>
