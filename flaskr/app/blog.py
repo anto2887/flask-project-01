@@ -3,6 +3,7 @@ from flask import (
 )
 from werkzeug.exceptions import abort
 from sqlalchemy import func
+from datetime import datetime
 
 from app.auth import login_required
 from app.models import Post, Users, UserResults, UserPredictions, Group, UserGroup, db
@@ -161,19 +162,23 @@ def get_previous_predictions():
 @login_required
 def create():
     if request.method == 'POST':
-        title = request.form['title']
         body = request.form['body']
         error = None
 
-        if not title:
-            error = 'Title is required.'
+        if not body:
+            error = 'Prediction is required.'
 
         if error is not None:
             flash(error)
         else:
-            new_post = Post(title=title, body=body, author_id=g.user.id)
+            new_post = Post(
+                body=body, 
+                author_id=g.user.id,
+                created=datetime.utcnow()
+            )
             db.session.add(new_post)
             db.session.commit()
+            flash('Your prediction has been created successfully.')
             return redirect(url_for('blog.index'))
 
     return render_template('blog/create.html')
