@@ -9,21 +9,21 @@
 <body>
     <div class="container">
         <h1>PrdiktIt</h1>
-        <ul>
-            {% if g.user %}
-                <li><span>{{ g.user.username }}</span></li>
-                <li><a href="{{ url_for('auth.logout') }}">Log Out</a></li>
-                <li><a href="{{ url_for('blog.create') }}">Post Prediction</a></li>
-                <li><a href="{{ url_for('group.create_group') }}">Create Group</a></li>
-                <li><a href="{{ url_for('group.manage_groups') }}">Manage Groups</a></li>
-            {% else %}
-                <li><a href="{{ url_for('auth.register') }}">Register</a></li>
-                <li><a href="{{ url_for('auth.login') }}">Log In</a></li>
-            {% endif %}
-        </ul>
-    </div>
+        <nav>
+            <ul>
+                {% if g.user %}
+                    <li><span>{{ g.user.username }}</span></li>
+                    <li><a href="{{ url_for('auth.logout') }}">Log Out</a></li>
+                    <li><a href="{{ url_for('blog.create') }}">Post Prediction</a></li>
+                    <li><a href="{{ url_for('group.create_group') }}">Create Group</a></li>
+                    <li><a href="{{ url_for('group.manage_groups') }}">Manage Groups</a></li>
+                {% else %}
+                    <li><a href="{{ url_for('auth.register') }}">Register</a></li>
+                    <li><a href="{{ url_for('auth.login') }}">Log In</a></li>
+                {% endif %}
+            </ul>
+        </nav>
 
-    <div class="container">
         {% if g.user %}
             <div class="top-section card">
                 <div class="user-results">
@@ -132,7 +132,13 @@
                     </tbody>
                 </table>
             </div>
+        {% else %}
+            <div class="card">
+                <h2>Welcome to PrdiktIt</h2>
+                <p>Please log in or register to start making predictions!</p>
+            </div>
         {% endif %}
+
         {% block content %}{% endblock %}
     </div>
 

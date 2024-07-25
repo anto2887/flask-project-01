@@ -3,7 +3,7 @@ import sys
 import logging
 from logging.handlers import RotatingFileHandler
 
-from flask import Flask, current_app
+from flask import Flask, current_app, render_template
 from sqlalchemy import create_engine
 from flask.cli import with_appcontext
 
@@ -75,7 +75,10 @@ def create_app(test_config=None):
     from. import auth, blog
     app.register_blueprint(auth.bp)
     app.register_blueprint(blog.bp)
-    app.add_url_rule('/', endpoint='index')
+
+    @app.route('/')
+    def index():
+        return render_template('base.html')
 
     @app.cli.command('init-scheduler')
     @with_appcontext
