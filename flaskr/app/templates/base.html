@@ -3,27 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{% endblock %} - PrdiktIt</title>
+    <title>PrdiktIt</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <nav>
-        <div class="container">
-            <h1>PrdiktIt</h1>
-            <ul>
-                {% if g.user %}
-                    <li><span>{{ g.user.username }}</span></li>
-                    <li><a href="{{ url_for('auth.logout') }}">Log Out</a></li>
-                    <li><a href="{{ url_for('blog.create') }}">Post Prediction</a></li>
-                    <li><a href="{{ url_for('group.create_group') }}">Create Group</a></li>
-                    <li><a href="{{ url_for('group.manage_groups') }}">Manage Groups</a></li>
-                {% else %}
-                    <li><a href="{{ url_for('auth.register') }}">Register</a></li>
-                    <li><a href="{{ url_for('auth.login') }}">Log In</a></li>
-                {% endif %}
-            </ul>
-        </div>
-    </nav>
+    <div class="container">
+        <h1>PrdiktIt</h1>
+        <ul>
+            {% if g.user %}
+                <li><span>{{ g.user.username }}</span></li>
+                <li><a href="{{ url_for('auth.logout') }}">Log Out</a></li>
+                <li><a href="{{ url_for('blog.create') }}">Post Prediction</a></li>
+                <li><a href="{{ url_for('group.create_group') }}">Create Group</a></li>
+                <li><a href="{{ url_for('group.manage_groups') }}">Manage Groups</a></li>
+            {% else %}
+                <li><a href="{{ url_for('auth.register') }}">Register</a></li>
+                <li><a href="{{ url_for('auth.login') }}">Log In</a></li>
+            {% endif %}
+        </ul>
+    </div>
 
     <div class="container">
         {% if g.user %}
@@ -31,20 +29,20 @@
                 <div class="user-results">
                     <h2>User Results</h2>
                     <div class="filters">
-                        <select id="groupFilter">
+                        <select id="groupSelect">
                             <option value="">Select Group</option>
                             {% for group in user_groups %}
                                 <option value="{{ group.id }}">{{ group.name }}</option>
                             {% endfor %}
                         </select>
-                        <select id="seasonFilter">
+                        <select id="seasonSelect">
                             <option value="">Select Season</option>
                             {% for season in seasons %}
                                 <option value="{{ season }}">{{ season }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <table id="resultsTable">
+                    <table id="userResultsTable">
                         <thead>
                             <tr>
                                 <th>User</th>
@@ -53,34 +51,36 @@
                         </thead>
                         <tbody>
                             {% for user in users %}
-                            <tr>
-                                <td>{{ user.username }}</td>
-                                <td class="points">{{ user_points.get(user.id, 0) }}</td>
-                            </tr>
+                                <tr>
+                                    <td>{{ user.username }}</td>
+                                    <td>{{ user_points.get(user.id, 0) }}</td>
+                                </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
                 <div class="recent-prediction">
                     <h2>Your Recent Prediction</h2>
-                    {% if recent_prediction %}
-                        <p>{{ recent_prediction.body }}</p>
+                    {% if recent_prediction and not recent_prediction_processed %}
+                        {{ recent_prediction.body }}
+                        <a href="{{ url_for('blog.update', id=recent_prediction.id) }}" class="btn">Edit</a>
+                    {% elif recent_prediction_processed %}
+                        <p>Your latest prediction has been processed. You can make a new prediction now.</p>
                     {% else %}
                         <p>No recent predictions.</p>
                     {% endif %}
                 </div>
             </div>
-
             <div class="top-performers card">
                 <h2>Top Performers This Week</h2>
                 <div class="filters">
-                    <select id="topPerformersGroupFilter">
+                    <select id="topPerformersGroupSelect">
                         <option value="">All Groups</option>
                         {% for group in user_groups %}
                             <option value="{{ group.id }}">{{ group.name }}</option>
                         {% endfor %}
                     </select>
-                    <select id="topPerformersMatchdayFilter">
+                    <select id="topPerformersMatchdaySelect">
                         <option value="">All Matchdays</option>
                         {% for matchday in matchdays %}
                             <option value="{{ matchday }}">Matchday {{ matchday }}</option>
@@ -93,23 +93,22 @@
                     {% endfor %}
                 </ol>
             </div>
-
             <div class="bottom-section card">
                 <h2>Previous Predictions</h2>
                 <div class="filters">
-                    <select id="previousPredictionsGroupFilter">
+                    <select id="previousPredictionsGroupSelect">
                         <option value="">All Groups</option>
                         {% for group in user_groups %}
                             <option value="{{ group.id }}">{{ group.name }}</option>
                         {% endfor %}
                     </select>
-                    <select id="previousPredictionsSeasonFilter">
+                    <select id="previousPredictionsSeasonSelect">
                         <option value="">All Seasons</option>
                         {% for season in seasons %}
                             <option value="{{ season }}">{{ season }}</option>
                         {% endfor %}
                     </select>
-                    <select id="previousPredictionsMatchdayFilter">
+                    <select id="previousPredictionsMatchdaySelect">
                         <option value="">All Matchdays</option>
                         {% for matchday in matchdays %}
                             <option value="{{ matchday }}">Matchday {{ matchday }}</option>
@@ -125,91 +124,72 @@
                     </thead>
                     <tbody>
                         {% for prediction in previous_predictions %}
-                        <tr>
-                            <td>{{ prediction.team1 }} {{ prediction.score1 }} - {{ prediction.score2 }} {{ prediction.team2 }}</td>
-                            <td class="points">{{ prediction.points }}</td>
-                        </tr>
+                            <tr>
+                                <td>{{ prediction.team1 }} {{ prediction.score1 }} - {{ prediction.score2 }} {{ prediction.team2 }}</td>
+                                <td>{{ prediction.points }}</td>
+                            </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         {% endif %}
-
         {% block content %}{% endblock %}
     </div>
 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-        document.getElementById('groupFilter').addEventListener('change', updateResults);
-        document.getElementById('seasonFilter').addEventListener('change', updateResults);
-        document.getElementById('topPerformersGroupFilter').addEventListener('change', updateTopPerformers);
-        document.getElementById('topPerformersMatchdayFilter').addEventListener('change', updateTopPerformers);
-        document.getElementById('previousPredictionsGroupFilter').addEventListener('change', updatePreviousPredictions);
-        document.getElementById('previousPredictionsSeasonFilter').addEventListener('change', updatePreviousPredictions);
-        document.getElementById('previousPredictionsMatchdayFilter').addEventListener('change', updatePreviousPredictions);
-
-        function updateResults() {
-            const groupId = document.getElementById('groupFilter').value;
-            const season = document.getElementById('seasonFilter').value;
-
-            fetch(`/get_filtered_results?group_id=${groupId}&season=${season}`)
-                .then(response => response.json())
-                .then(data => {
-                    const tableBody = document.querySelector('#resultsTable tbody');
-                    tableBody.innerHTML = '';  // Clear existing rows
-
-                    data.forEach(user => {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${user.username}</td>
-                            <td class="points">${user.points}</td>
-                        `;
-                        tableBody.appendChild(row);
+        $(document).ready(function() {
+            function updateUserResults() {
+                var groupId = $('#groupSelect').val();
+                var season = $('#seasonSelect').val();
+                $.getJSON("{{ url_for('blog.get_filtered_results') }}", {
+                    group_id: groupId,
+                    season: season
+                }, function(data) {
+                    var tableBody = $('#userResultsTable tbody');
+                    tableBody.empty();
+                    $.each(data, function(index, item) {
+                        tableBody.append('<tr><td>' + item.username + '</td><td>' + item.points + '</td></tr>');
                     });
-                })
-                .catch(error => console.error('Error:', error));
-        }
+                });
+            }
 
-        function updateTopPerformers() {
-            const groupId = document.getElementById('topPerformersGroupFilter').value;
-            const matchday = document.getElementById('topPerformersMatchdayFilter').value;
-
-            fetch(`/get_top_performers?group_id=${groupId}&matchday=${matchday}`)
-                .then(response => response.json())
-                .then(data => {
-                    const performersList = document.getElementById('topPerformersList');
-                    performersList.innerHTML = '';  // Clear existing items
-
-                    data.forEach(performer => {
-                        const listItem = document.createElement('li');
-                        listItem.innerHTML = `${performer.username} - <span class="points">${performer.points} points</span>`;
-                        performersList.appendChild(listItem);
+            function updateTopPerformers() {
+                var groupId = $('#topPerformersGroupSelect').val();
+                var matchday = $('#topPerformersMatchdaySelect').val();
+                $.getJSON("{{ url_for('blog.get_top_performers_route') }}", {
+                    group_id: groupId,
+                    matchday: matchday
+                }, function(data) {
+                    var list = $('#topPerformersList');
+                    list.empty();
+                    $.each(data, function(index, item) {
+                        list.append('<li>' + item.username + ' - <span class="points">' + item.points + ' points</span></li>');
                     });
-                })
-                .catch(error => console.error('Error:', error));
-        }
+                });
+            }
 
-        function updatePreviousPredictions() {
-            const groupId = document.getElementById('previousPredictionsGroupFilter').value;
-            const season = document.getElementById('previousPredictionsSeasonFilter').value;
-            const matchday = document.getElementById('previousPredictionsMatchdayFilter').value;
-
-            fetch(`/get_previous_predictions?group_id=${groupId}&season=${season}&matchday=${matchday}`)
-                .then(response => response.json())
-                .then(data => {
-                    const tableBody = document.querySelector('#previousPredictionsTable tbody');
-                    tableBody.innerHTML = '';  // Clear existing rows
-
-                    data.forEach(prediction => {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${prediction.team1} ${prediction.score1} - ${prediction.score2} ${prediction.team2}</td>
-                            <td class="points">${prediction.points}</td>
-                        `;
-                        tableBody.appendChild(row);
+            function updatePreviousPredictions() {
+                var groupId = $('#previousPredictionsGroupSelect').val();
+                var season = $('#previousPredictionsSeasonSelect').val();
+                var matchday = $('#previousPredictionsMatchdaySelect').val();
+                $.getJSON("{{ url_for('blog.get_previous_predictions') }}", {
+                    group_id: groupId,
+                    season: season,
+                    matchday: matchday
+                }, function(data) {
+                    var tableBody = $('#previousPredictionsTable tbody');
+                    tableBody.empty();
+                    $.each(data, function(index, item) {
+                        tableBody.append('<tr><td>' + item.team1 + ' ' + item.score1 + ' - ' + item.score2 + ' ' + item.team2 + '</td><td>' + item.points + '</td></tr>');
                     });
-                })
-                .catch(error => console.error('Error:', error));
-        }
+                });
+            }
+
+            $('#groupSelect, #seasonSelect').change(updateUserResults);
+            $('#topPerformersGroupSelect, #topPerformersMatchdaySelect').change(updateTopPerformers);
+            $('#previousPredictionsGroupSelect, #previousPredictionsSeasonSelect, #previousPredictionsMatchdaySelect').change(updatePreviousPredictions);
+        });
     </script>
 </body>
 </html>
