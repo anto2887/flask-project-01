@@ -72,9 +72,10 @@ def create_app(test_config=None):
     def health():
         return 'OK', 200
 
-    from. import auth, blog
+    from. import auth, blog, views
     app.register_blueprint(auth.bp)
     app.register_blueprint(blog.bp)
+    app.register_blueprint(views.group_bp)
 
     @app.route('/')
     def index():
