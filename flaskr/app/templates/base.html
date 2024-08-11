@@ -7,9 +7,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>PrdiktIt</h1>
-        <nav>
+    <nav>
+        <div class="container">
+            <h1>PrdiktIt</h1>
             <ul>
                 {% if g.user %}
                     <li><span>{{ g.user.username }}</span></li>
@@ -22,8 +22,10 @@
                     <li><a href="{{ url_for('auth.login') }}">Log In</a></li>
                 {% endif %}
             </ul>
-        </nav>
+        </div>
+    </nav>
 
+    <div class="container">
         {% if g.user %}
             <div class="top-section card">
                 <div class="user-results">
@@ -71,6 +73,7 @@
                     {% endif %}
                 </div>
             </div>
+            
             <div class="top-performers card">
                 <h2>Top Performers This Week</h2>
                 <div class="filters">
@@ -93,6 +96,7 @@
                     {% endfor %}
                 </ol>
             </div>
+            
             <div class="bottom-section card">
                 <h2>Previous Predictions</h2>
                 <div class="filters">

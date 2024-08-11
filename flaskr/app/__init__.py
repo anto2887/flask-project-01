@@ -3,7 +3,8 @@ import sys
 import logging
 from logging.handlers import RotatingFileHandler
 
-from flask import Flask, current_app, render_template
+from flask import Flask, current_app, render_template, redirect, url_for
+from flask_login import current_user
 from sqlalchemy import create_engine
 from flask.cli import with_appcontext
 
@@ -79,6 +80,8 @@ def create_app(test_config=None):
 
     @app.route('/')
     def index():
+        if not current_user.is_authenticated:
+            return redirect(url_for('auth.login'))
         return render_template('base.html')
 
     @app.cli.command('init-scheduler')

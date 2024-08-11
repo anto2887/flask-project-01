@@ -175,19 +175,13 @@ def create():
         if error is not None:
             flash(error)
         else:
-            new_post = Post(
-                body=body, 
-                author_id=g.user.id,
-                created=datetime.utcnow(),
-                week=get_current_week(),  # You need to implement this function
-                season=get_current_season()  # Make sure this function is implemented
-            )
+            new_post = Post(body=body, author_id=g.user.id)
             db.session.add(new_post)
             db.session.commit()
             flash('Your prediction has been created successfully.')
-            return redirect(url_for('blog.index'))
+            return redirect(url_for('index'))
 
-    return render_template('blog/create.html')
+    return render_template('create.html')
 
 def get_post(id, check_author=True):
     post = Post.query.get_or_404(id)
