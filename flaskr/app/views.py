@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app
-from flask_login import login_required, current_user
+from flask_login import current_user
+from app.auth import login_required
 from app.models import Users, Group, db
 from app.forms import CreateGroupForm
 
@@ -20,7 +21,7 @@ def manage_groups():
                 return redirect(url_for('group.manage_groups'))
             
             form = CreateGroupForm(obj=group)
-            if form.validate():
+            if form.validate_on_submit():
                 group.name = form.name.data
                 group.league = form.league.data
                 selected_users = Users.query.filter(Users.id.in_(request.form.getlist('selected_users'))).all()
@@ -31,7 +32,7 @@ def manage_groups():
                 flash('Group updated successfully!', 'success')
                 return redirect(url_for('group.manage_groups'))
         
-        return render_template('manage_groups.html', groups=created_groups)
+        return render_template('manage_group.html', groups=created_groups)
     except Exception as e:
         current_app.logger.error(f"Error in manage_groups: {str(e)}")
         return "An error occurred", 500
