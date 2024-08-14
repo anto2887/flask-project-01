@@ -9,11 +9,6 @@ group_bp = Blueprint('group', __name__, url_prefix='/group')
 @login_required
 def manage_groups():
     try:
-        # Check if user is authenticated
-        if not current_user.is_authenticated:
-            flash('Please log in to manage groups.', 'warning')
-            return redirect(url_for('auth.login'))
-
         created_groups = Group.query.filter_by(creator_id=current_user.id).all()
         
         if request.method == 'POST':
@@ -45,11 +40,6 @@ def manage_groups():
 @login_required
 def create_group():
     try:
-        # Check if user is authenticated
-        if not current_user.is_authenticated:
-            flash('Please log in to create a group.', 'warning')
-            return redirect(url_for('auth.login'))
-
         form = CreateGroupForm()
         users = Users.query.all()
 
