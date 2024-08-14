@@ -4,15 +4,12 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 from flask import Flask, current_app, render_template, redirect, url_for
-from flask_login import current_user
+from flask_login import LoginManager, current_user
 from sqlalchemy import create_engine
 from flask.cli import with_appcontext
 
 from app.db import db
 from app.models import Users, Post, UserResults
-
-# from .views import group_bp
-# app.register_blueprint(group_bp)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
@@ -61,6 +58,15 @@ def create_app(test_config=None):
     # Initialize DB with app
     db.init_app(app)
 
+    # Initialize LoginManager
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view = 'auth.login'
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return Users.query.get(int(user_id))
+
     with app.app_context():
         if app.config.get('CREATE_TABLES_ON_STARTUP'):
             db.create_all()
@@ -73,7 +79,8 @@ def create_app(test_config=None):
     def health():
         return 'OK', 200
 
-    from. import auth, blog, views
+    # Import and register blueprints
+    from app import auth, blog, views
     app.register_blueprint(auth.bp)
     app.register_blueprint(blog.bp)
     app.register_blueprint(views.group_bp)
@@ -104,4 +111,5 @@ def create_app(test_config=None):
 
     return app
 
-app = create_app()
+# Remove this line as it's not typically needed in the __init__.py file
+# app = create_app()
