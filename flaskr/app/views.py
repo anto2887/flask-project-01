@@ -1,6 +1,5 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app
-from flask_login import current_user
-from app.auth import login_required
+from flask_login import current_user, login_required
 from app.models import Users, Group, db
 from app.forms import CreateGroupForm
 
@@ -10,6 +9,11 @@ group_bp = Blueprint('group', __name__, url_prefix='/group')
 @login_required
 def manage_groups():
     try:
+        # Check if user is authenticated
+        if not current_user.is_authenticated:
+            flash('Please log in to manage groups.', 'warning')
+            return redirect(url_for('auth.login'))
+
         created_groups = Group.query.filter_by(creator_id=current_user.id).all()
         
         if request.method == 'POST':
@@ -35,12 +39,17 @@ def manage_groups():
         return render_template('blog/manage_group.html', groups=created_groups)
     except Exception as e:
         current_app.logger.error(f"Error in manage_groups: {str(e)}")
-        return "An error occurred", 500
+        return f"An error occurred: {str(e)}", 500
 
 @group_bp.route('/create', methods=['GET', 'POST'])
 @login_required
 def create_group():
     try:
+        # Check if user is authenticated
+        if not current_user.is_authenticated:
+            flash('Please log in to create a group.', 'warning')
+            return redirect(url_for('auth.login'))
+
         form = CreateGroupForm()
         users = Users.query.all()
 
@@ -56,4 +65,4 @@ def create_group():
         return render_template('blog/create_group.html', form=form, users=users)
     except Exception as e:
         current_app.logger.error(f"Error in create_group: {str(e)}")
-        return "An error occurred", 500
+        return f"An error occurred: {str(e)}", 500
