@@ -32,7 +32,7 @@ def manage_groups():
                 flash('Group updated successfully!', 'success')
                 return redirect(url_for('group.manage_groups'))
         
-        return render_template('manage_group.html', groups=created_groups)
+        return render_template('blog/manage_group.html', groups=created_groups)
     except Exception as e:
         current_app.logger.error(f"Error in manage_groups: {str(e)}")
         return "An error occurred", 500
@@ -53,7 +53,7 @@ def create_group():
             flash('Group created successfully!', 'success')
             return redirect(url_for('group.manage_groups'))
 
-        return render_template('create_group.html', form=form, users=users)
+        return render_template('blog/create_group.html', form=form, users=users)
     except Exception as e:
         current_app.logger.error(f"Error in create_group: {str(e)}")
         return "An error occurred", 500
