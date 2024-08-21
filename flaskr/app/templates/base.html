@@ -10,23 +10,23 @@
     <nav>
         <div class="container">
             <h1>PrdiktIt</h1>
-            <ul>
-                {% if g.user %}
-                    <li><span>{{ g.user.username }}</span></li>
-                    <li><a href="{{ url_for('auth.logout') }}">Log Out</a></li>
-                    <li><a href="{{ url_for('blog.create') }}">Post Prediction</a></li>
-                    <li><a href="{{ url_for('group.create_group') }}">Create Group</a></li>
-                    <li><a href="{{ url_for('group.manage_groups') }}">Manage Groups</a></li>
+            <nav>
+                {% if current_user.is_authenticated %}
+                    <span>{{ current_user.username }}</span>
+                    <a href="{{ url_for('auth.logout') }}">Log Out</a>
+                    <a href="{{ url_for('blog.create') }}">Post Prediction</a>
+                    <a href="{{ url_for('group.create_group') }}">Create Group</a>
+                    <a href="{{ url_for('group.manage_groups') }}">Manage Groups</a>
                 {% else %}
-                    <li><a href="{{ url_for('auth.register') }}">Register</a></li>
-                    <li><a href="{{ url_for('auth.login') }}">Log In</a></li>
+                    <a href="{{ url_for('auth.register') }}">Register</a>
+                    <a href="{{ url_for('auth.login') }}">Log In</a>
                 {% endif %}
-            </ul>
+            </nav>
         </div>
     </nav>
 
     <div class="container">
-        {% if g.user %}
+        {% if current_user.is_authenticated %}
             <div class="top-section card">
                 <div class="user-results">
                     <h2>User Results</h2>
@@ -136,12 +136,12 @@
                     </tbody>
                 </table>
             </div>
-        <!-- {% else %}
+        {% else %}
             <div class="card">
                 <h2>Welcome to PrdiktIt</h2>
                 <p>Please log in or register to start making predictions!</p>
             </div>
-        {% endif %} -->
+        {% endif %}
 
         {% block content %}{% endblock %}
     </div>

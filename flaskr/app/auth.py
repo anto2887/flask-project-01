@@ -1,16 +1,15 @@
-import functools
-
-from flask import (
-    Blueprint, flash, g, redirect, render_template, request, session, url_for
-)
+from flask import Blueprint, flash, g, redirect, render_template, request, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
-
-from app.models import Users, db  # Updated import statement
+from flask_login import login_user, login_required, logout_user, current_user
+from app.models import Users, db
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 @bp.route('/register', methods=('GET', 'POST'))
 def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -37,11 +36,14 @@ def register():
 
 @bp.route('/login', methods=('GET', 'POST'))
 def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
         error = None
-        user = Users.query.filter_by(username=username).first()  # Updated Users
+        user = Users.query.filter_by(username=username).first()
 
         if user is None:
             error = 'Incorrect username.'
@@ -49,34 +51,19 @@ def login():
             error = 'Incorrect password.'
 
         if error is None:
-            session.clear()
-            session['user_id'] = user.id
-            return redirect(url_for('index'))
+            login_user(user)
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('index'))
 
         flash(error)
 
     return render_template('auth/login.html')
 
-@bp.before_app_request
-def load_logged_in_user():
-    user_id = session.get('user_id')
-
-    if user_id is None:
-        g.user = None
-    else:
-        g.user = Users.query.get(user_id)  # Updated Users
-
 @bp.route('/logout')
+@login_required
 def logout():
-    session.clear()
+    logout_user()
     return redirect(url_for('index'))
 
-def login_required(view):
-    @functools.wraps(view)
-    def wrapped_view(**kwargs):
-        if g.user is None:
-            return redirect(url_for('auth.login'))
-
-        return view(**kwargs)
-
-    return wrapped_view
+# Remove the custom login_required decorator and @bp.before_app_request function
+# as they are no longer needed with Flask-Login
