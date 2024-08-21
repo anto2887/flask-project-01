@@ -1,7 +1,6 @@
 import datetime
+from flask import current_app
 from app.scraper import table_scraper
-from app import app
-
 
 def date_init():
     # Dictionary with the dates and corresponding 'n' values
@@ -44,13 +43,12 @@ def date_init():
     # Check if today's date matches any key in the dictionary
     if today in date_mapping:
         n = date_mapping[today]
-        app.logger.info(f"Scraping data for week number {n}")
+        current_app.logger.info(f"Scraping data for week number {n}")
         return table_scraper(n)
     else:
-        app.logger.info("No scraping needed for today.")
+        current_app.logger.info("No scraping needed for today.")
         return None
 
-
-    # # Temporary bypass of date logic for testing
+    # Temporary bypass of date logic for testing
     # test_week_number = 10  # Set the week number you want to test
     # return table_scraper(test_week_number)

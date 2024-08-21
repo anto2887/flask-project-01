@@ -1,11 +1,10 @@
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, jsonify, current_app
+    Blueprint, flash, redirect, render_template, request, url_for, jsonify, current_app, abort
 )
-from werkzeug.exceptions import abort
+from flask_login import current_user, login_required
 from sqlalchemy import func
 from datetime import datetime
-from flask_login import current_user
-from app.auth import login_required
+
 from app.models import Post, Users, UserResults, UserPredictions, Group, user_groups, db
 from app.season import get_current_season
 
@@ -14,15 +13,15 @@ bp = Blueprint('blog', __name__)
 @bp.route('/')
 @login_required
 def index():
-    user_groups_query = Group.query.join(user_groups).filter(user_groups.c.user_id == g.user.id).all()
+    user_groups_query = Group.query.join(user_groups).filter(user_groups.c.user_id == current_user.id).all()
     seasons = db.session.query(UserPredictions.season.distinct()).all()
     seasons = [season[0] for season in seasons]
     current_group = user_groups_query[0] if user_groups_query else None
-    
+
     if current_group:
         users = Users.query.join(user_groups).filter(user_groups.c.group_id == current_group.id).all()
     else:
-        users = [g.user]
+        users = [current_user]
 
     user_points = db.session.query(
         UserResults.author_id,
@@ -30,12 +29,12 @@ def index():
     ).group_by(UserResults.author_id).all()
     
     user_points = {up.author_id: up.total_points for up in user_points}
-    recent_prediction = Post.query.filter_by(author_id=g.user.id).order_by(Post.created.desc()).first()
+    recent_prediction = Post.query.filter_by(author_id=current_user.id).order_by(Post.created.desc()).first()
     matchdays = db.session.query(UserPredictions.week.distinct()).order_by(UserPredictions.week).all()
     matchdays = [matchday[0] for matchday in matchdays]
     current_week = max(matchdays) if matchdays else None
     top_performers = get_top_performers(current_week)
-    previous_predictions = UserPredictions.query.filter_by(author_id=g.user.id).order_by(UserPredictions.week.desc()).limit(10).all()
+    previous_predictions = UserPredictions.query.filter_by(author_id=current_user.id).order_by(UserPredictions.week.desc()).limit(10).all()
     recent_prediction_processed = recent_prediction.processed if recent_prediction else False
 
     return render_template('blog/index.html', 
@@ -119,7 +118,7 @@ def get_previous_predictions():
     season = request.args.get('season')
     matchday = request.args.get('matchday')
 
-    query = UserPredictions.query.filter_by(author_id=g.user.id)
+    query = UserPredictions.query.filter_by(author_id=current_user.id)
 
     if group_id:
         query = query.join(user_groups, UserPredictions.author_id == user_groups.c.user_id)
@@ -159,7 +158,7 @@ def create():
         else:
             new_post = Post(
                 body=body, 
-                author_id=g.user.id,
+                author_id=current_user.id,
                 created=datetime.utcnow(),
                 week=get_current_week(),
                 season=get_current_season()
@@ -170,14 +169,6 @@ def create():
             return redirect(url_for('blog.index'))
 
     return render_template('blog/create.html')
-
-def get_post(id, check_author=True):
-    post = Post.query.get_or_404(id)
-
-    if check_author and post.author_id != g.user.id:
-        abort(403)
-
-    return post
 
 @bp.route('/<int:id>/update', methods=('GET', 'POST'))
 @login_required
@@ -212,6 +203,14 @@ def delete(id):
     db.session.delete(post)
     db.session.commit()
     return redirect(url_for('blog.index'))
+
+def get_post(id, check_author=True):
+    post = Post.query.get_or_404(id)
+
+    if check_author and post.author_id != current_user.id:
+        abort(403)
+
+    return post
 
 def get_current_week():
     # Implement logic to determine the current week
