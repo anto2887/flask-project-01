@@ -146,29 +146,40 @@ def get_previous_predictions():
 @bp.route('/create', methods=('GET', 'POST'))
 @login_required
 def create():
+    user_groups = Group.query.join(user_groups).filter(user_groups.c.user_id == current_user.id).all()
+    
     if request.method == 'POST':
         body = request.form['body']
+        group_id = request.form.get('group_id')
         error = None
 
         if not body:
             error = 'Prediction is required.'
+        if not group_id:
+            error = 'Group selection is required.'
 
-        if error is not None:
+        if error is None:
+            group = Group.query.get(group_id)
+            if group is None:
+                error = 'Invalid group selected.'
+            else:
+                new_post = Post(
+                    body=body, 
+                    author_id=current_user.id,
+                    group_id=group.id,
+                    created=datetime.utcnow(),
+                    week=get_current_week(),
+                    season=get_current_season(group.league)
+                )
+                db.session.add(new_post)
+                db.session.commit()
+                flash('Your prediction has been created successfully.')
+                return redirect(url_for('blog.index'))
+
+        if error:
             flash(error)
-        else:
-            new_post = Post(
-                body=body, 
-                author_id=current_user.id,
-                created=datetime.utcnow(),
-                week=get_current_week(),
-                season=get_current_season()
-            )
-            db.session.add(new_post)
-            db.session.commit()
-            flash('Your prediction has been created successfully.')
-            return redirect(url_for('blog.index'))
 
-    return render_template('blog/create.html')
+    return render_template('blog/create.html', user_groups=user_groups)
 
 @bp.route('/<int:id>/update', methods=('GET', 'POST'))
 @login_required

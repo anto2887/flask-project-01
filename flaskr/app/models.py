@@ -33,11 +33,14 @@ class Post(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=False)
     created = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     body = db.Column(db.Text, nullable=False)
     week = db.Column(db.Integer, nullable=False)
     season = db.Column(db.String, nullable=False)
     processed = db.Column(db.Boolean, default=False, nullable=False)
+    
+    group = db.relationship('Group', backref='posts')
 
 class UserResults(db.Model):
     __tablename__ = 'user_results'
