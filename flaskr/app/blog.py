@@ -146,7 +146,7 @@ def get_previous_predictions():
 @bp.route('/create', methods=('GET', 'POST'))
 @login_required
 def create():
-    user_groups = Group.query.join(user_groups).filter(user_groups.c.user_id == current_user.id).all()
+    usergroup = Group.query.join(user_groups).filter(user_groups.c.user_id == current_user.id).all()
     
     if request.method == 'POST':
         body = request.form['body']
@@ -179,7 +179,7 @@ def create():
         if error:
             flash(error)
 
-    return render_template('blog/create.html', user_groups=user_groups)
+    return render_template('blog/create.html', user_group=usergroup)
 
 @bp.route('/<int:id>/update', methods=('GET', 'POST'))
 @login_required
