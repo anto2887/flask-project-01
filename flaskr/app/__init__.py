@@ -78,16 +78,19 @@ def create_app(test_config=None):
     @app.route('/health')
     def health():
         return 'OK', 200
-    
-    # Initialize blog module
-    blog.init_app(app)
 
     # Import and register blueprints
-    from app import auth, blog, views
-    app.register_blueprint(auth.bp)
-    app.register_blueprint(blog.bp)
-    app.register_blueprint(views.group_bp)
+    try:
+        from app import auth, blog, views
+        app.register_blueprint(auth.bp)
+        app.register_blueprint(blog.bp)
+        app.register_blueprint(views.group_bp)
 
+        # Initialize blog module
+        blog.init_app(app)
+    except ImportError as e:
+        app.logger.error(f"Error importing modules: {str(e)}")
+        raise  # Re-raise the exception to prevent the app from starting with missing modules
 
     @app.route('/')
     def index():
@@ -114,6 +117,3 @@ def create_app(test_config=None):
             current_app.logger.error("Error starting the scheduler:", exc_info=e)
 
     return app
-
-# Remove this line as it's not typically needed in the __init__.py file
-# app = create_app()
