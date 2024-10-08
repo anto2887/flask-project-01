@@ -22,8 +22,9 @@ def update_user_points():
     
     user_points = {up.author_id: up.total_points for up in user_points_query}
 
-# Call this function when the Blueprint is created
-update_user_points()
+def init_app(app):
+    with app.app_context():
+        update_user_points()
 
 @bp.route('/')
 @login_required

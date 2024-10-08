@@ -85,6 +85,9 @@ def create_app(test_config=None):
     app.register_blueprint(blog.bp)
     app.register_blueprint(views.group_bp)
 
+    # Initialize blog module
+    blog.init_app(app)
+
     @app.route('/')
     def index():
         if not current_user.is_authenticated:
