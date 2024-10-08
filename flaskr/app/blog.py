@@ -10,6 +10,21 @@ from app.season import get_current_season
 
 bp = Blueprint('blog', __name__)
 
+# Global variable to store user points
+user_points = {}
+
+def update_user_points():
+    global user_points
+    user_points_query = db.session.query(
+        UserResults.author_id,
+        func.sum(UserResults.points).label('total_points')
+    ).group_by(UserResults.author_id).all()
+    
+    user_points = {up.author_id: up.total_points for up in user_points_query}
+
+# Call this function when the Blueprint is created
+update_user_points()
+
 @bp.route('/')
 @login_required
 def index():
@@ -23,12 +38,9 @@ def index():
     else:
         users = [current_user]
 
-    user_points = db.session.query(
-        UserResults.author_id,
-        func.sum(UserResults.points).label('total_points')
-    ).group_by(UserResults.author_id).all()
+    # Use the global user_points here
+    global user_points
     
-    user_points = {up.author_id: up.total_points for up in user_points}
     recent_prediction = Post.query.filter_by(author_id=current_user.id).order_by(Post.created.desc()).first()
     matchdays = db.session.query(UserPredictions.week.distinct()).order_by(UserPredictions.week).all()
     matchdays = [matchday[0] for matchday in matchdays]
