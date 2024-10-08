@@ -15,12 +15,13 @@ user_points = {}
 
 def update_user_points():
     global user_points
-    user_points_query = db.session.query(
-        UserResults.author_id,
-        func.sum(UserResults.points).label('total_points')
-    ).group_by(UserResults.author_id).all()
-    
-    user_points = {up.author_id: up.total_points for up in user_points_query}
+    with current_app.app_context():
+        user_points_query = db.session.query(
+            UserResults.author_id,
+            func.sum(UserResults.points).label('total_points')
+        ).group_by(UserResults.author_id).all()
+        
+        user_points = {up.author_id: up.total_points for up in user_points_query}
 
 def init_app(app):
     with app.app_context():

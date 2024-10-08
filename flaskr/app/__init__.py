@@ -78,6 +78,9 @@ def create_app(test_config=None):
     @app.route('/health')
     def health():
         return 'OK', 200
+    
+    # Initialize blog module
+    blog.init_app(app)
 
     # Import and register blueprints
     from app import auth, blog, views
@@ -85,8 +88,6 @@ def create_app(test_config=None):
     app.register_blueprint(blog.bp)
     app.register_blueprint(views.group_bp)
 
-    # Initialize blog module
-    blog.init_app(app)
 
     @app.route('/')
     def index():

@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, flash,
 from flask_login import current_user, login_required
 from app.models import Users, Group, db
 from app.forms import CreateGroupForm
+from app.blog import user_points
 
 group_bp = Blueprint('group', __name__, url_prefix='/group')
 
@@ -52,7 +53,7 @@ def create_group():
             flash('Group created successfully!', 'success')
             return redirect(url_for('group.manage_groups'))
 
-        return render_template('blog/create_group.html', form=form, users=users)
+        return render_template('blog/create_group.html', form=form, users=users, user_points=user_points)
     except Exception as e:
         current_app.logger.error(f"Error in create_group: {str(e)}")
         return f"An error occurred: {str(e)}", 500
