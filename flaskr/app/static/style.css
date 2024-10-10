@@ -243,3 +243,96 @@ button:hover, .btn:hover {
     color: red;
     font-size: 0.9em;
 }
+
+.prediction-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+.prediction-title {
+    text-align: center;
+    color: #333333;
+    margin-bottom: 20px;
+}
+
+.league-selector {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+#league-select {
+    width: 200px;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #cccccc;
+    background-color: #f0f0f0;
+}
+
+.fixtures-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.fixture-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f9f9f9;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.05);
+}
+
+.team {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.team-logo {
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+}
+
+.team-name {
+    font-size: 16px;
+    color: #333333;
+}
+
+.vs {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333333;
+}
+
+input[type="number"] {
+    width: 40px;
+    height: 30px;
+    text-align: center;
+    border: 1px solid #cccccc;
+    border-radius: 5px;
+}
+
+.submit-btn {
+    display: block;
+    width: 200px;
+    height: 40px;
+    margin: 20px auto 0;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.submit-btn:hover {
+    background-color: #45a049;
+}
