@@ -1,54 +1,69 @@
 import datetime
 from flask import current_app
-from app.scraper import table_scraper
+from app.api_client import get_fixtures, get_league_id
+from app.season import get_current_season
+from app.models import db, Post, UserResults, UserPredictions
+from app.compare import calculate_points
+from app.input import score_input  # Add this import
 
-def date_init():
-    # Dictionary with the dates and corresponding 'n' values
-    date_mapping = {
-        '2023-10-24': 9,
-        '2023-10-30': 10,
-        '2023-11-07': 11,
-        '2023-11-13': 12,
-        '2023-11-26': 13,
-        '2023-12-04': 14,
-        '2023-12-07': 15,
-        '2023-12-10': 16,
-        '2023-12-17': 17,
-        '2023-12-24': 18,
-        '2023-12-27': 19,
-        '2023-12-31': 20,
-        '2024-01-14': 21,
-        '2024-02-01': 22,
-        '2024-02-04': 23,
-        '2024-02-11': 24,
-        '2024-02-18': 25,
-        '2024-02-25': 26,
-        '2024-03-03': 27,
-        '2024-03-10': 28,
-        '2024-03-17': 29,
-        '2024-03-31': 30,
-        '2024-04-04': 31,
-        '2024-04-07': 32,
-        '2024-04-14': 33,
-        '2024-04-21': 34,
-        '2024-04-28': 35,
-        '2024-05-05': 36,
-        '2024-05-12': 37,
-        '2024-05-20': 38
-    }
+def daily_update():
+    leagues = ["Premier League", "La Liga", "UEFA Champions League"]
+    today = datetime.date.today()
+   
+    for league in leagues:
+        season = get_current_season(league)
+        league_id = get_league_id(league)
+       
+        # Fetch fixtures for today
+        fixtures = get_fixtures(league_id, season, today)
+       
+        if fixtures:
+            process_fixtures(fixtures, league, season)
 
-    # Get today's date
-    today = datetime.date.today().strftime('%Y-%m-%d')
-
-    # Check if today's date matches any key in the dictionary
-    if today in date_mapping:
-        n = date_mapping[today]
-        current_app.logger.info(f"Scraping data for week number {n}")
-        return table_scraper(n)
-    else:
-        current_app.logger.info("No scraping needed for today.")
-        return None
-
-    # Temporary bypass of date logic for testing
-    # test_week_number = 10  # Set the week number you want to test
-    # return table_scraper(test_week_number)
+def process_fixtures(fixtures, league, season):
+    for fixture in fixtures:
+        round_number = fixture['league']['round'].split(' - ')[1]
+        home_team = fixture['teams']['home']['name']
+        away_team = fixture['teams']['away']['name']
+        home_score = fixture['goals']['home']
+        away_score = fixture['goals']['away']
+       
+        # Fetch predictions for this fixture
+        predictions = Post.query.filter_by(
+            season=season,
+            week=round_number,
+            processed=False
+        ).all()
+       
+        for prediction in predictions:
+            user_input_results = score_input(prediction.body, league)  # Pass the league parameter
+            for result in user_input_results:
+                if home_team in result and away_team in result:
+                    pred_home_score = result[home_team]
+                    pred_away_score = result[away_team]
+                    points = calculate_points(pred_home_score, pred_away_score, home_score, away_score)
+                   
+                    # Update UserResults
+                    user_result = UserResults.query.filter_by(author_id=prediction.author_id, season=season).first()
+                    if not user_result:
+                        user_result = UserResults(author_id=prediction.author_id, points=0, season=season)
+                        db.session.add(user_result)
+                    user_result.points += points
+                   
+                    # Update UserPredictions
+                    user_prediction = UserPredictions(
+                        author_id=prediction.author_id,
+                        week=round_number,
+                        season=season,
+                        team1=home_team,
+                        team2=away_team,
+                        score1=pred_home_score,
+                        score2=pred_away_score,
+                        points=points
+                    )
+                    db.session.add(user_prediction)
+                   
+                    # Mark prediction as processed
+                    prediction.processed = True
+       
+        db.session.commit()

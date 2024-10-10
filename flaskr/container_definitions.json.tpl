@@ -19,6 +19,18 @@
     },
     "environment": [
       {
+        "name": "FLASK_APP",
+        "value": "app"
+      },
+      {
+        "name": "PYTHONPATH",
+        "value": "/flaskr"
+      },
+      {
+        "name": "CREATE_TABLES_ON_STARTUP",
+        "value": "True"
+      },
+      {
         "name": "DB_HOST",
         "value": "${db_host}"
       },
@@ -39,11 +51,27 @@
         "value": "${sqlalchemy_database_uri}"
       }
     ],
+    "secrets": [
+      {
+        "name": "API_FOOTBALL_KEY",
+        "valueFrom": "${api_football_key_arn}"
+      }
+    ],
     "command": [
       "/usr/local/bin/wait-for-it.sh",
-      "${db_host}:5432",
+      "${db_host}:${db_port}",
       "--",
       "/flaskr/entrypoint.sh"
-    ]
+    ],
+    "healthCheck": {
+      "command": [
+        "CMD-SHELL",
+        "curl -f http://localhost:5000/health || exit 1"
+      ],
+      "interval": 30,
+      "timeout": 5,
+      "retries": 3,
+      "startPeriod": 60
+    }
   }
 ]

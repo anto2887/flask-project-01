@@ -20,6 +20,33 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_secrets_policy" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = aws_iam_policy.secrets_access_policy.arn
+}
+
+resource "aws_iam_policy" "secrets_access_policy" {
+  name        = "flaskr_secrets_access_policy"
+  description = "Policy to allow ECS tasks to access Secrets Manager"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ],
+        Resource = aws_secretsmanager_secret.api_football_key.arn
+      }
+    ]
+  })
+}
+
+resource "aws_secretsmanager_secret" "api_football_key" {
+  name = "football_api_key"
+}
+
 resource "aws_iam_role" "ecs_task_role" {
   name = "flaskr_ecs_task_role"
 
@@ -57,6 +84,7 @@ locals {
     db_user               = local.db_user
     db_password           = local.db_password
     sqlalchemy_database_uri = local.sqlalchemy_database_uri
+    api_football_key_arn  = aws_secretsmanager_secret.api_football_key.arn
   })
 }
 
@@ -88,6 +116,6 @@ resource "aws_ecs_service" "flaskr_ecs_service" {
   load_balancer {
     target_group_arn = aws_lb_target_group.flaskr_app_tg.arn
     container_name   = "flaskr-app"
-    container_port   = 5000 # Updated to match the container port defined in the task definition
+    container_port   = 5000
   }
 }
