@@ -9,3 +9,9 @@ variable "acm_certificate_arn" {
   type        = string
   default     = "arn:aws:acm:us-east-1:193482034911:certificate/11a0ef6b-e195-4f02-989b-6d4de71feacc"
 }
+
+variable "api_football_key_value" {
+  description = "The API key for football data"
+  type        = string
+  sensitive   = true
+}

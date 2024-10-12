@@ -47,6 +47,11 @@ resource "aws_secretsmanager_secret" "api_football_key" {
   name = "football_api_key"
 }
 
+resource "aws_secretsmanager_secret_version" "api_football_key" {
+  secret_id     = aws_secretsmanager_secret.api_football_key.id
+  secret_string = var.api_football_key_value
+}
+
 resource "aws_iam_role" "ecs_task_role" {
   name = "flaskr_ecs_task_role"
 
