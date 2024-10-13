@@ -9,7 +9,8 @@ from sqlalchemy import create_engine
 from flask.cli import with_appcontext
 
 from app.db import db
-from app.models import Users, Post, UserResults
+from app.models import Users, Post, UserResults, Fixture
+from app.api_client import populate_initial_data
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
@@ -17,16 +18,13 @@ sys.path.append(os.path.dirname(SCRIPT_DIR))
 DATABASE_URI = os.environ.get("SQLALCHEMY_DATABASE_URI")
 
 def create_app(test_config=None):
-    # Create and configure the app
     app = Flask(__name__, instance_relative_config=True)
 
-    # Ensure the instance folder exists
     try:
         os.makedirs(app.instance_path)
     except OSError:
         pass
 
-    # Logging configuration
     if not app.debug:
         log_dir = '/flaskr/logs'
         if not os.path.exists(log_dir):
@@ -47,18 +45,14 @@ def create_app(test_config=None):
     )
 
     if test_config is None:
-        # Load the instance config, if it exists, when not testing
         app.config.from_pyfile('config.py', silent=True)
     else:
-        # Load the test config if passed in
         app.config.from_mapping(test_config)
 
     app.config["CREATE_TABLES_ON_STARTUP"] = os.environ.get("CREATE_TABLES_ON_STARTUP") == 'True'
 
-    # Initialize DB with app
     db.init_app(app)
 
-    # Initialize LoginManager
     login_manager = LoginManager()
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
@@ -70,6 +64,7 @@ def create_app(test_config=None):
     with app.app_context():
         if app.config.get('CREATE_TABLES_ON_STARTUP'):
             db.create_all()
+        populate_initial_data()  # Call this function to populate data on startup
 
     @app.route('/hello')
     def hello():
@@ -79,18 +74,16 @@ def create_app(test_config=None):
     def health():
         return 'OK', 200
 
-    # Import and register blueprints
     try:
         from app import auth, blog, views
         app.register_blueprint(auth.bp)
         app.register_blueprint(blog.bp)
         app.register_blueprint(views.group_bp)
 
-        # Initialize blog module
         blog.init_app(app)
     except ImportError as e:
         app.logger.error(f"Error importing modules: {str(e)}")
-        raise  # Re-raise the exception to prevent the app from starting with missing modules
+        raise
 
     @app.route('/')
     def index():
@@ -110,7 +103,7 @@ def create_app(test_config=None):
             current_app.logger.error("Error connecting to the database:", exc_info=e)
             return None
         try:
-            from app.cron_job import scheduler  # Moved scheduler import inside the function
+            from app.cron_job import scheduler
             scheduler()
             current_app.logger.info("Scheduler started successfully!")
         except Exception as e:

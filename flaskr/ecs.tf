@@ -44,7 +44,7 @@ resource "aws_iam_policy" "secrets_access_policy" {
 }
 
 resource "aws_secretsmanager_secret" "api_football_key" {
-  name = "football_api_key"
+  name = "football_api_key_${formatdate("YYYYMMDD", timestamp())}"
 }
 
 resource "aws_secretsmanager_secret_version" "api_football_key" {

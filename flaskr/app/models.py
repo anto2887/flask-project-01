@@ -65,3 +65,18 @@ class UserPredictions(db.Model):
     created = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     __table_args__ = (db.UniqueConstraint('author_id', 'week', 'season', 'team1', 'team2', name='_author_week_season_teams_uc'),)
+
+class Fixture(db.Model):
+    __tablename__ = 'fixtures'
+
+    id = db.Column(db.Integer, primary_key=True)
+    fixture_id = db.Column(db.Integer, unique=True, nullable=False)
+    home_team = db.Column(db.String, nullable=False)
+    away_team = db.Column(db.String, nullable=False)
+    date = db.Column(db.DateTime, nullable=False)
+    league = db.Column(db.String, nullable=False)
+    season = db.Column(db.String, nullable=False)
+    round = db.Column(db.String, nullable=False)
+    status = db.Column(db.String, nullable=False)
+    home_score = db.Column(db.Integer)
+    away_score = db.Column(db.Integer)
