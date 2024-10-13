@@ -68,8 +68,8 @@
         "CMD-SHELL",
         "curl -f http://localhost:5000/health || exit 1"
       ],
-      "interval": 30,
-      "timeout": 5,
+      "interval": 3600,
+      "timeout": 30,
       "retries": 3,
       "startPeriod": 60
     }

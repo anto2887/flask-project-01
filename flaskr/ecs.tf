@@ -103,6 +103,11 @@ resource "aws_ecs_task_definition" "flaskr_app_task" {
   task_role_arn            = aws_iam_role.ecs_task_role.arn
 
   container_definitions = local.container_definitions
+
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "X86_64"
+  }
 }
 
 resource "aws_ecs_service" "flaskr_ecs_service" {
