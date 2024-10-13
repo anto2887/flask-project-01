@@ -17,14 +17,7 @@ sys.path.append(os.path.dirname(SCRIPT_DIR))
 
 DATABASE_URI = os.environ.get("SQLALCHEMY_DATABASE_URI")
 
-def create_app(test_config=None):
-    app = Flask(__name__, instance_relative_config=True)
-
-    try:
-        os.makedirs(app.instance_path)
-    except OSError:
-        pass
-
+def configure_logging(app):
     if not app.debug:
         log_dir = '/flaskr/logs'
         if not os.path.exists(log_dir):
@@ -36,20 +29,29 @@ def create_app(test_config=None):
         file_handler.setLevel(logging.INFO)
         app.logger.addHandler(file_handler)
         app.logger.setLevel(logging.INFO)
-        app.logger.info('Flaskr startup')
+
+def create_app(test_config=None):
+    app = Flask(__name__, instance_relative_config=True)
+
+    try:
+        os.makedirs(app.instance_path)
+    except OSError:
+        pass
+
+    configure_logging(app)
+    app.logger.info('Flaskr startup')
 
     app.config.from_mapping(
-        SECRET_KEY='dev',
+        SECRET_KEY=os.environ.get('SECRET_KEY', 'dev'),
         SQLALCHEMY_DATABASE_URI=DATABASE_URI,
-        SQLALCHEMY_TRACK_MODIFICATIONS=False
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        CREATE_TABLES_ON_STARTUP=os.environ.get("CREATE_TABLES_ON_STARTUP") == 'True'
     )
 
     if test_config is None:
         app.config.from_pyfile('config.py', silent=True)
     else:
         app.config.from_mapping(test_config)
-
-    app.config["CREATE_TABLES_ON_STARTUP"] = os.environ.get("CREATE_TABLES_ON_STARTUP") == 'True'
 
     db.init_app(app)
 
@@ -64,7 +66,7 @@ def create_app(test_config=None):
     with app.app_context():
         if app.config.get('CREATE_TABLES_ON_STARTUP'):
             db.create_all()
-        populate_initial_data()  # Call this function to populate data on startup
+        populate_initial_data()
 
     @app.route('/hello')
     def hello():
@@ -101,11 +103,11 @@ def create_app(test_config=None):
             connection.close()
         except Exception as e:
             current_app.logger.error("Error connecting to the database:", exc_info=e)
-            return None
+            return
+
         try:
-            from app.cron_job import scheduler
-            scheduler()
-            current_app.logger.info("Scheduler started successfully!")
+            from app.cron_job import init_scheduler
+            init_scheduler(app)
         except Exception as e:
             current_app.logger.error("Error starting the scheduler:", exc_info=e)
 

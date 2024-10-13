@@ -1,25 +1,16 @@
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
-from app import app
 from app.date_utils import daily_update
 
-def scheduler():
-    sched = BackgroundScheduler(timezone='US/Central')
+def init_scheduler(app):
+    scheduler = BackgroundScheduler(timezone='US/Central')
     
-    def task_with_callback():
+    @scheduler.scheduled_job('cron', hour=8, minute=0)
+    def scheduled_task():
         with app.app_context():
-            try:
-                daily_update()
-                app.logger.info("Daily update completed successfully.")
-            except Exception as e:
-                app.logger.error("Error during daily update:", exc_info=e)
+            daily_update()
 
-    # Schedule daily_update to run every day at 8:00 AM
-    sched.add_job(task_with_callback, CronTrigger(hour=8, minute=0))
-    
-    sched.start()
+    scheduler.start()
     app.logger.info("Scheduler started.")
-
 
 # The below line of code is an infinite loop that broke my code the first time I tested it
     # try:
