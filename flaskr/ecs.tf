@@ -44,11 +44,7 @@ resource "aws_iam_policy" "secrets_access_policy" {
 }
 
 resource "aws_secretsmanager_secret" "api_football_key" {
-  name_prefix = "football_api_key_"
-  
-  lifecycle {
-    create_before_destroy = true
-  }
+  name = "football_api_key"
 }
 
 resource "aws_secretsmanager_secret_version" "api_football_key" {
@@ -71,6 +67,11 @@ resource "aws_iam_role" "ecs_task_role" {
       }
     ]
   })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_secrets_policy" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.secrets_access_policy.arn
 }
 
 resource "aws_ecs_cluster" "flaskr_ecs_cluster" {
