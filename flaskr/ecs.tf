@@ -2,6 +2,10 @@ resource "aws_ecs_cluster" "flaskr_ecs_cluster" {
   name = "flaskr-ecs-cluster"
 }
 
+# Create a random ID for the secret suffix
+resource "random_id" "secret_suffix" {
+  byte_length = 8
+}
 
 # Create a new secret or use an existing one
 resource "aws_secretsmanager_secret" "api_football_key" {
@@ -16,11 +20,6 @@ resource "aws_secretsmanager_secret" "api_football_key" {
 resource "aws_secretsmanager_secret_version" "api_football_key" {
   secret_id     = aws_secretsmanager_secret.api_football_key.id
   secret_string = var.api_football_key_value
-}
-
-# Create a random ID for the secret suffix
-resource "random_id" "secret_suffix" {
-  byte_length = 8
 }
 
 # IAM role for ECS task execution
@@ -90,9 +89,15 @@ resource "aws_iam_role" "ecs_task_role" {
   })
 }
 
+# Attach Secrets Manager access policy to ECS task role
+resource "aws_iam_role_policy_attachment" "ecs_task_secrets_policy" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.secrets_access_policy.arn
+}
+
 # Define local variables for database connection and container definitions
 locals {
-  db_user                 = "myuser" # You can adjust these values as needed
+  db_user                 = "myuser"
   db_password             = "mypassword"
   db_host                 = aws_db_instance.flaskr_db.address
   db_port                 = "5432"
