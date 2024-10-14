@@ -1,29 +1,24 @@
-data "aws_secretsmanager_secret" "existing_secrets" {
-  name = "football_api_key"
-}
-
-locals {
-  secret_exists = length(data.aws_secretsmanager_secret.existing_secrets) > 0
-  secret_id     = local.secret_exists ? data.aws_secretsmanager_secret.existing_secrets.id : aws_secretsmanager_secret.api_football_key.id
-}
-
-resource "random_id" "secret_suffix" {
-  byte_length = 8
-}
-
+# Create a new secret or use an existing one
 resource "aws_secretsmanager_secret" "api_football_key" {
-  name = local.secret_exists ? data.aws_secretsmanager_secret.existing_secrets.name : "football_api_key_${random_id.secret_suffix.hex}"
+  name = "football_api_key_${random_id.secret_suffix.hex}"
 
   lifecycle {
     create_before_destroy = true
   }
 }
 
+# Add the secret value to the newly created secret
 resource "aws_secretsmanager_secret_version" "api_football_key" {
-  secret_id     = local.secret_id
+  secret_id     = aws_secretsmanager_secret.api_football_key.id
   secret_string = var.api_football_key_value
 }
 
+# Create a random ID for the secret suffix
+resource "random_id" "secret_suffix" {
+  byte_length = 8
+}
+
+# IAM role for ECS task execution
 resource "aws_iam_role" "ecs_task_execution_role" {
   name = "flaskr_ecs_task_execution_role"
 
@@ -41,16 +36,19 @@ resource "aws_iam_role" "ecs_task_execution_role" {
   })
 }
 
+# Attach the Amazon ECS task execution role policy
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   role       = aws_iam_role.ecs_task_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# Attach policy to allow ECS tasks to access Secrets Manager
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_secrets_policy" {
   role       = aws_iam_role.ecs_task_execution_role.name
   policy_arn = aws_iam_policy.secrets_access_policy.arn
 }
 
+# Define IAM policy for Secrets Manager access
 resource "aws_iam_policy" "secrets_access_policy" {
   name        = "flaskr_secrets_access_policy"
   description = "Policy to allow ECS tasks to access Secrets Manager"
@@ -63,12 +61,13 @@ resource "aws_iam_policy" "secrets_access_policy" {
         Action = [
           "secretsmanager:GetSecretValue"
         ],
-        Resource = local.secret_id
+        Resource = aws_secretsmanager_secret.api_football_key.arn
       }
     ]
   })
 }
 
+# Define ECS task role
 resource "aws_iam_role" "ecs_task_role" {
   name = "flaskr_ecs_task_role"
 
@@ -76,26 +75,25 @@ resource "aws_iam_role" "ecs_task_role" {
     Version = "2012-10-17",
     Statement = [
       {
-        Action = "sts:AssumeRole",
         Effect = "Allow",
         Principal = {
           Service = "ecs-tasks.amazonaws.com"
-        }
+        },
+        Action = "sts:AssumeRole"
       }
     ]
   })
 }
 
-resource "aws_ecs_cluster" "flaskr_ecs_cluster" {
-  name = "flaskr-ecs-cluster"
-}
-
+# Define local variables for database connection and container definitions
 locals {
-  db_user                 = "myuser"
+  db_user                 = "mydbuser" # You can adjust these values as needed
   db_password             = "mypassword"
   db_host                 = aws_db_instance.flaskr_db.address
   db_port                 = "5432"
   sqlalchemy_database_uri = "postgresql://${local.db_user}:${local.db_password}@${local.db_host}:${local.db_port}/flaskrdb"
+
+  # Container definitions populated from a template file
   container_definitions = templatefile("${path.module}/container_definitions.json.tpl", {
     image                   = "193482034911.dkr.ecr.us-east-1.amazonaws.com/flaskr-app:latest"
     awslogs_group           = "/ecs/flaskr-app"
@@ -106,10 +104,11 @@ locals {
     db_user                 = local.db_user
     db_password             = local.db_password
     sqlalchemy_database_uri = local.sqlalchemy_database_uri
-    api_football_key_arn    = local.secret_id
+    api_football_key_arn    = aws_secretsmanager_secret.api_football_key.arn
   })
 }
 
+# Define ECS task definition
 resource "aws_ecs_task_definition" "flaskr_app_task" {
   family                   = "flaskr-app-task"
   network_mode             = "awsvpc"
@@ -127,6 +126,7 @@ resource "aws_ecs_task_definition" "flaskr_app_task" {
   }
 }
 
+# Define ECS service
 resource "aws_ecs_service" "flaskr_ecs_service" {
   name            = "flaskr-ecs-service"
   cluster         = aws_ecs_cluster.flaskr_ecs_cluster.id
