@@ -1,3 +1,8 @@
+resource "aws_ecs_cluster" "flaskr_ecs_cluster" {
+  name = "flaskr-ecs-cluster"
+}
+
+
 # Create a new secret or use an existing one
 resource "aws_secretsmanager_secret" "api_football_key" {
   name = "football_api_key_${random_id.secret_suffix.hex}"
