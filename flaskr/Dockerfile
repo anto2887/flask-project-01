@@ -1,31 +1,63 @@
-# Using Python 3.9 slim image as the base
+# Stage 1: Build environment
+FROM python:3.9-slim AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --user --no-warn-script-location -r requirements.txt
+
+# Stage 2: Runtime environment
 FROM python:3.9-slim
 
 # Set timezone
 RUN ln -snf /usr/share/zoneinfo/America/Chicago /etc/localtime && echo America/Chicago > /etc/timezone
 
-# Setting the working directory to /flaskr
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    curl \
+    unzip \
+    && curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+    && unzip awscliv2.zip \
+    && ./aws/install \
+    && rm -rf awscliv2.zip aws \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
 WORKDIR /flaskr
 
-# Copy requirements.txt and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy installed dependencies from builder stage
+COPY --from=builder /root/.local /root/.local
 
-# Copy the necessary files and directories
+# Ensure scripts directory is in PATH
+ENV PATH=/root/.local/bin:$PATH
+
+# Copy application files
 COPY . .
 
-# Copy the modified wait-for-it.sh script to the appropriate location
+# Copy and set permissions for scripts
 COPY wait-for-it.sh /usr/local/bin/wait-for-it.sh
-# Provide the necessary permissions
-RUN chmod +x /usr/local/bin/wait-for-it.sh
+COPY entrypoint.sh /flaskr/entrypoint.sh
+RUN chmod +x /usr/local/bin/wait-for-it.sh /flaskr/entrypoint.sh
 
-# Exposing port 5000 for the Flask app to listen on
+# Expose port
 EXPOSE 5000
 
-# Setting Flask environment variables
+# Set environment variables
 ENV FLASK_APP=app
 ENV PYTHONPATH=/flaskr
 ENV CREATE_TABLES_ON_STARTUP=True
 
-# Command to run the application, passing a notification command to wait-for-it.sh
-CMD ["/usr/local/bin/wait-for-it.sh", "db:5432", "--notify=echo Connection to db successful", "--", "/flaskr/entrypoint.sh"]
+# Command to run the application
+CMD ["/bin/bash", "-c", "/usr/local/bin/wait-for-it.sh db:5432 --timeout=30 --strict -- /flaskr/entrypoint.sh"]
