@@ -92,7 +92,7 @@ resource "aws_iam_role" "ecs_task_role" {
 
 # Define local variables for database connection and container definitions
 locals {
-  db_user                 = "mydbuser" # You can adjust these values as needed
+  db_user                 = "myuser" # You can adjust these values as needed
   db_password             = "mypassword"
   db_host                 = aws_db_instance.flaskr_db.address
   db_port                 = "5432"
