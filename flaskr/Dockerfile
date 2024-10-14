@@ -22,17 +22,18 @@ FROM python:3.9-slim
 # Set timezone
 RUN ln -snf /usr/share/zoneinfo/America/Chicago /etc/localtime && echo America/Chicago > /etc/timezone
 
-# Install runtime dependencies
+# Install runtime dependencies and AWS CLI
 RUN apt-get update && apt-get install -y \
     libpq5 \
     curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install AWS CLI
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+    unzip \
+    && curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
     && unzip awscliv2.zip \
     && ./aws/install \
-    && rm -rf awscliv2.zip aws
+    && rm -rf awscliv2.zip aws \
+    && apt-get remove -y unzip \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /flaskr
