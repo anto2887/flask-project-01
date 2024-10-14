@@ -1,16 +1,19 @@
-# Add this resource to clean up lingering secrets
 resource "null_resource" "cleanup_secrets" {
   provisioner "local-exec" {
     command = <<EOT
-      #!/bin/bash
+      #!/bin/sh
       secrets=$(aws secretsmanager list-secrets --query 'SecretList[?starts_with(Name, `football_api_key`) && DeletedDate!=null].ARN' --output text)
-      for secret in $secrets; do
-        aws secretsmanager delete-secret --secret-id $secret --force-delete-without-recovery
-        echo "Deleted secret: $secret"
-      done
+      if [ -n "$secrets" ]; then
+        for secret in $secrets; do
+          aws secretsmanager delete-secret --secret-id "$secret" --force-delete-without-recovery
+          echo "Deleted secret: $secret"
+        done
+      else
+        echo "No secrets to delete."
+      fi
     EOT
 
-    interpreter = ["/bin/bash", "-c"]
+    interpreter = ["/bin/sh", "-c"]
   }
 }
 
