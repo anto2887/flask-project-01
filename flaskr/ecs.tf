@@ -1,16 +1,3 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 3.0"
-    }
-    null = {
-      source  = "hashicorp/null"
-      version = "~> 3.1.0"
-    }
-  }
-}
-
 # Add this resource to clean up lingering secrets
 resource "null_resource" "cleanup_secrets" {
   provisioner "local-exec" {
