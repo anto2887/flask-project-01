@@ -1,24 +1,27 @@
-resource "null_resource" "cleanup_secrets" {
-  provisioner "local-exec" {
-    command = <<EOT
-      #!/bin/sh
-      secrets=$(aws secretsmanager list-secrets --query 'SecretList[?starts_with(Name, `football_api_key`) && DeletedDate!=null].ARN' --output text)
-      if [ -n "$secrets" ]; then
-        for secret in $secrets; do
-          aws secretsmanager delete-secret --secret-id "$secret" --force-delete-without-recovery
-          echo "Deleted secret: $secret"
-        done
-      else
-        echo "No secrets to delete."
-      fi
-    EOT
+data "aws_secretsmanager_secret" "existing_secrets" {
+  name = "football_api_key"
+}
 
-    interpreter = ["/bin/sh", "-c"]
-  }
+locals {
+  secret_exists = length(data.aws_secretsmanager_secret.existing_secrets) > 0
+  secret_id     = local.secret_exists ? data.aws_secretsmanager_secret.existing_secrets.id : aws_secretsmanager_secret.api_football_key.id
 }
 
 resource "random_id" "secret_suffix" {
   byte_length = 8
+}
+
+resource "aws_secretsmanager_secret" "api_football_key" {
+  name = local.secret_exists ? data.aws_secretsmanager_secret.existing_secrets.name : "football_api_key_${random_id.secret_suffix.hex}"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "api_football_key" {
+  secret_id     = local.secret_id
+  secret_string = var.api_football_key_value
 }
 
 resource "aws_iam_role" "ecs_task_execution_role" {
@@ -60,25 +63,10 @@ resource "aws_iam_policy" "secrets_access_policy" {
         Action = [
           "secretsmanager:GetSecretValue"
         ],
-        Resource = aws_secretsmanager_secret.api_football_key.arn
+        Resource = local.secret_id
       }
     ]
   })
-}
-
-resource "aws_secretsmanager_secret" "api_football_key" {
-  name = "football_api_key_${random_id.secret_suffix.hex}"
-
-  lifecycle {
-    create_before_destroy = true
-  }
-
-  depends_on = [null_resource.cleanup_secrets]
-}
-
-resource "aws_secretsmanager_secret_version" "api_football_key" {
-  secret_id     = aws_secretsmanager_secret.api_football_key.id
-  secret_string = var.api_football_key_value
 }
 
 resource "aws_iam_role" "ecs_task_role" {
@@ -118,7 +106,7 @@ locals {
     db_user                 = local.db_user
     db_password             = local.db_password
     sqlalchemy_database_uri = local.sqlalchemy_database_uri
-    api_football_key_arn    = aws_secretsmanager_secret.api_football_key.arn
+    api_football_key_arn    = local.secret_id
   })
 }
 
