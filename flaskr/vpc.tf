@@ -67,16 +67,16 @@ resource "aws_lb" "flaskr_app_alb" {
 }
 
 resource "aws_lb_target_group" "flaskr_app_tg" {
-  name         = "flaskr-app-tg"
-  port         = 5000
-  protocol     = "HTTP"
-  vpc_id       = aws_vpc.flaskr_vpc.id
-  target_type  = "ip"
+  name        = "flaskr-app-tg"
+  port        = 5000
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.flaskr_vpc.id
+  target_type = "ip"
 
   health_check {
     path                = "/health"
-    interval            = 300  # 1 hour in seconds
-    timeout             = 30    # Increased timeout for less frequent checks
+    interval            = 300 # 1 hour in seconds
+    timeout             = 30  # Increased timeout for less frequent checks
     healthy_threshold   = 2
     unhealthy_threshold = 2
     matcher             = "200"
@@ -110,8 +110,8 @@ resource "aws_lb_listener" "flaskr_app_https_listener" {
 }
 
 resource "aws_route53_record" "flaskr_alb" {
-  zone_id = "Z1013243V3H94OXCQ2KV"  # Replace with your Route 53 hosted zone ID
-  name    = "ops76.co"              # Replace with your domain name
+  zone_id = "Z1013243V3H94OXCQ2KV" # Replace with your Route 53 hosted zone ID
+  name    = "ops76.co"             # Replace with your domain name
   type    = "A"
 
   alias {
