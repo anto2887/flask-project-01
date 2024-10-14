@@ -10,7 +10,6 @@ from flask.cli import with_appcontext
 
 from app.db import db
 from app.models import Users, Post, UserResults, Fixture
-from app.api_client import populate_initial_data
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
@@ -66,6 +65,7 @@ def create_app(test_config=None):
     with app.app_context():
         if app.config.get('CREATE_TABLES_ON_STARTUP'):
             db.create_all()
+        from app.api_client import populate_initial_data
         populate_initial_data()
 
     @app.route('/hello')
@@ -107,7 +107,7 @@ def create_app(test_config=None):
 
         try:
             from app.cron_job import init_scheduler
-            init_scheduler(app)
+            init_scheduler(current_app._get_current_object())
         except Exception as e:
             current_app.logger.error("Error starting the scheduler:", exc_info=e)
 
