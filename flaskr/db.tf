@@ -14,7 +14,7 @@ resource "aws_db_instance" "flaskr_db" {
   engine                 = "postgres"
   engine_version         = "13.13"
   instance_class         = "db.t3.micro"
-  db_name                   = "flaskrdb"
+  db_name                = "flaskrdb"
   username               = "myuser"
   password               = "mypassword"
   db_subnet_group_name   = aws_db_subnet_group.flaskr_subnet_group.name
