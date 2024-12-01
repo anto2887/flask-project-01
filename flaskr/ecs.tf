@@ -118,6 +118,7 @@ locals {
     db_password             = local.db_password
     sqlalchemy_database_uri = local.sqlalchemy_database_uri
     api_football_key_arn    = aws_secretsmanager_secret.api_football_key.arn
+    api_football_key_name   = aws_secretsmanager_secret.api_football_key.name
   })
 }
 

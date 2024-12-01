@@ -57,6 +57,10 @@
       {
         "name": "AWS_DEFAULT_REGION",
         "value": "${awslogs_region}"
+      },
+      {
+        "name": "SECRET_NAME",
+        "value": "${api_football_key_name}"
       }
     ],
     "secrets": [

@@ -8,9 +8,15 @@ from flask import current_app
 BASE_URL = "https://v3.football.api-sports.io"
 
 def get_secret():
-    secret_name = os.environ.get('API_FOOTBALL_KEY')  # This will come from the container definition
-    region_name = "us-east-1"
+    secret_name = os.environ.get('SECRET_NAME')  # Get the full secret name from environment
+    region_name = os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')
+    
+    if not secret_name:
+        current_app.logger.error("SECRET_NAME environment variable not set")
+        return None
 
+    current_app.logger.info(f"Attempting to retrieve secret: {secret_name}")
+    
     session = boto3.session.Session()
     client = session.client(
         service_name='secretsmanager',
@@ -19,15 +25,15 @@ def get_secret():
 
     try:
         get_secret_value_response = client.get_secret_value(SecretId=secret_name)
-        current_app.logger.info(f"Successfully retrieved secret for {secret_name}")
-    except ClientError as e:
-        current_app.logger.error(f"Error retrieving secret: {str(e)}")
-        return None
-    else:
+        current_app.logger.info("Successfully retrieved secret value")
         if 'SecretString' in get_secret_value_response:
             return get_secret_value_response['SecretString']
-        else:
-            return None
+    except ClientError as e:
+        current_app.logger.error(f"Error retrieving secret: {str(e)}")
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error retrieving secret: {str(e)}")
+    
+    return None
 
 def populate_initial_data():
     current_app.logger.info("Starting initial data population")
