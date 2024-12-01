@@ -8,7 +8,7 @@ from flask import current_app
 BASE_URL = "https://v3.football.api-sports.io"
 
 def get_secret():
-    secret_name = "football_api_key"
+    secret_name = os.environ.get('API_FOOTBALL_KEY')  # This will come from the container definition
     region_name = "us-east-1"
 
     session = boto3.session.Session()
@@ -19,6 +19,7 @@ def get_secret():
 
     try:
         get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+        current_app.logger.info(f"Successfully retrieved secret for {secret_name}")
     except ClientError as e:
         current_app.logger.error(f"Error retrieving secret: {str(e)}")
         return None

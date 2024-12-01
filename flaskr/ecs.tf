@@ -65,10 +65,20 @@ resource "aws_iam_policy" "secrets_access_policy" {
         Action = [
           "secretsmanager:GetSecretValue"
         ],
-        Resource = aws_secretsmanager_secret.api_football_key.arn
+        Resource = [
+          aws_secretsmanager_secret.api_football_key.arn
+        ]
       }
     ]
   })
+}
+
+resource "aws_secretsmanager_secret" "api_football_key" {
+  name = "football_api_key_${random_id.secret_suffix.hex}"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # Define ECS task role
