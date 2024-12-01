@@ -31,6 +31,10 @@
         "value": "True"
       },
       {
+        "name": "POPULATE_DATA_ON_STARTUP",
+        "value": "True"
+      },
+      {
         "name": "DB_HOST",
         "value": "${db_host}"
       },
@@ -49,6 +53,10 @@
       {
         "name": "SQLALCHEMY_DATABASE_URI",
         "value": "${sqlalchemy_database_uri}"
+      },
+      {
+        "name": "AWS_DEFAULT_REGION",
+        "value": "${awslogs_region}"
       }
     ],
     "secrets": [

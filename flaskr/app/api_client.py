@@ -5,7 +5,7 @@ from botocore.exceptions import ClientError
 from app.models import db, Fixture
 from flask import current_app
 
-BASE_URL = "https://api-football-v1.p.rapidapi.com/v3"
+BASE_URL = "https://v3.football.api-sports.io"
 
 def get_secret():
     secret_name = "football_api_key"
@@ -37,8 +37,8 @@ def populate_initial_data():
         return
 
     headers = {
-        "X-RapidAPI-Key": API_KEY,
-        "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
+        'x-rapidapi-key': API_KEY,
+        'x-rapidapi-host': 'v3.football.api-sports.io'
     }
 
     url = f"{BASE_URL}/fixtures"
@@ -46,13 +46,18 @@ def populate_initial_data():
     
     try:
         current_app.logger.info(f"Making API request to: {url}")
-        response = requests.get(url, headers=headers, params=querystring)
+        response = requests.request("GET", url, headers=headers, params=querystring)
         current_app.logger.info(f"API response status code: {response.status_code}")
         current_app.logger.info(f"API response headers: {response.headers}")
         
         response.raise_for_status()
         
-        fixtures = response.json()['response']
+        data = response.json()
+        if 'response' not in data:
+            current_app.logger.error("Invalid API response format")
+            return
+            
+        fixtures = data['response']
         current_app.logger.info(f"Retrieved {len(fixtures)} fixtures from API")
         
         for fixture in fixtures:
@@ -74,12 +79,15 @@ def populate_initial_data():
         
         db.session.commit()
         current_app.logger.info(f"Populated {len(fixtures)} fixtures")
+        
     except requests.RequestException as e:
         current_app.logger.error(f"API request failed: {str(e)}")
         if hasattr(e, 'response') and e.response is not None:
             current_app.logger.error(f"Response content: {e.response.text}")
+        db.session.rollback()
     except Exception as e:
         current_app.logger.error(f"Error populating initial data: {str(e)}")
+        db.session.rollback()
 
 def get_fixtures(league_id, season, round):
     API_KEY = get_secret()
@@ -88,18 +96,23 @@ def get_fixtures(league_id, season, round):
         return None
 
     headers = {
-        "X-RapidAPI-Key": API_KEY,
-        "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
+        'x-rapidapi-key': API_KEY,
+        'x-rapidapi-host': 'v3.football.api-sports.io'
     }
 
     url = f"{BASE_URL}/fixtures"
     querystring = {"league": league_id, "season": season, "round": f"Regular Season - {round}"}
     
     try:
-        response = requests.get(url, headers=headers, params=querystring)
+        response = requests.request("GET", url, headers=headers, params=querystring)
         response.raise_for_status()
         
-        fixtures = response.json()['response']
+        data = response.json()
+        if 'response' not in data:
+            current_app.logger.error("Invalid API response format")
+            return None
+            
+        fixtures = data['response']
         return [
             {
                 'home_team': fixture['teams']['home']['name'],
