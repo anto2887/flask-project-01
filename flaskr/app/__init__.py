@@ -44,7 +44,8 @@ def create_app(test_config=None):
         SECRET_KEY=os.environ.get('SECRET_KEY', 'dev'),
         SQLALCHEMY_DATABASE_URI=DATABASE_URI,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        CREATE_TABLES_ON_STARTUP=os.environ.get("CREATE_TABLES_ON_STARTUP") == 'True'
+        CREATE_TABLES_ON_STARTUP=os.environ.get("CREATE_TABLES_ON_STARTUP") == 'True',
+        POPULATE_DATA_ON_STARTUP=os.environ.get("POPULATE_DATA_ON_STARTUP") == 'True'
     )
 
     if test_config is None:
@@ -65,8 +66,9 @@ def create_app(test_config=None):
     with app.app_context():
         if app.config.get('CREATE_TABLES_ON_STARTUP'):
             db.create_all()
-        from app.api_client import populate_initial_data
-        populate_initial_data()
+        if app.config.get('POPULATE_DATA_ON_STARTUP'):
+            from app.api_client import populate_initial_data
+            populate_initial_data()
 
     @app.route('/hello')
     def hello():
