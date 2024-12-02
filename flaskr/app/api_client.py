@@ -44,15 +44,21 @@ def populate_initial_data():
         return
 
     headers = {
-        'x-rapidapi-key': API_KEY,
-        'x-rapidapi-host': 'v3.football.api-sports.io'
+        'x-apisports-key': API_KEY,  # Changed from x-rapidapi-key
     }
 
     url = f"{BASE_URL}/fixtures"
-    querystring = {"league":"39","season":"2023"}  # Premier League, 2023 season
+    # Add more specific query parameters
+    querystring = {
+        "league": "39",     # Premier League
+        "season": "2023",   # Current season
+        "status": "NS"      # Not Started matches
+    }
     
     try:
         current_app.logger.info(f"Making API request to: {url}")
+        current_app.logger.info(f"Query parameters: {querystring}")
+        
         response = requests.request("GET", url, headers=headers, params=querystring)
         current_app.logger.info(f"API response status code: {response.status_code}")
         current_app.logger.info(f"API response headers: {response.headers}")
@@ -60,32 +66,40 @@ def populate_initial_data():
         response.raise_for_status()
         
         data = response.json()
-        if 'response' not in data:
-            current_app.logger.error("Invalid API response format")
+        current_app.logger.info(f"API response data: {data}")  # Add this to see full response
+        
+        if not data.get('response'):
+            current_app.logger.error(f"Invalid API response format or no fixtures found: {data}")
             return
             
         fixtures = data['response']
         current_app.logger.info(f"Retrieved {len(fixtures)} fixtures from API")
         
+        fixture_count = 0
         for fixture in fixtures:
             existing_fixture = Fixture.query.filter_by(fixture_id=fixture['fixture']['id']).first()
             if not existing_fixture:
-                new_fixture = Fixture(
-                    fixture_id=fixture['fixture']['id'],
-                    home_team=fixture['teams']['home']['name'],
-                    away_team=fixture['teams']['away']['name'],
-                    date=fixture['fixture']['date'],
-                    league=fixture['league']['name'],
-                    season=fixture['league']['season'],
-                    round=fixture['league']['round'],
-                    status=fixture['fixture']['status']['long'],
-                    home_score=fixture['goals']['home'],
-                    away_score=fixture['goals']['away']
-                )
-                db.session.add(new_fixture)
+                try:
+                    new_fixture = Fixture(
+                        fixture_id=fixture['fixture']['id'],
+                        home_team=fixture['teams']['home']['name'],
+                        away_team=fixture['teams']['away']['name'],
+                        date=fixture['fixture']['date'],
+                        league=fixture['league']['name'],
+                        season=fixture['league']['season'],
+                        round=fixture['league']['round'],
+                        status=fixture['fixture']['status']['long'],
+                        home_score=fixture['goals']['home'] if fixture['goals']['home'] is not None else 0,
+                        away_score=fixture['goals']['away'] if fixture['goals']['away'] is not None else 0
+                    )
+                    db.session.add(new_fixture)
+                    fixture_count += 1
+                except Exception as e:
+                    current_app.logger.error(f"Error processing fixture: {str(e)}")
+                    continue
         
         db.session.commit()
-        current_app.logger.info(f"Populated {len(fixtures)} fixtures")
+        current_app.logger.info(f"Populated {fixture_count} new fixtures")
         
     except requests.RequestException as e:
         current_app.logger.error(f"API request failed: {str(e)}")
