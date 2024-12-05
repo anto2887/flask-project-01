@@ -44,42 +44,48 @@ def populate_initial_data():
         return
 
     headers = {
-        'x-apisports-key': API_KEY,  # Changed from x-rapidapi-key
+        'x-apisports-key': API_KEY
     }
 
     url = f"{BASE_URL}/fixtures"
-    # Add more specific query parameters
+    # First try to get next fixtures
     querystring = {
         "league": "39",     # Premier League
         "season": "2023",   # Current season
-        "status": "NS"      # Not Started matches
+        "next": "10"        # Get next 10 fixtures
     }
     
     try:
         current_app.logger.info(f"Making API request to: {url}")
         current_app.logger.info(f"Query parameters: {querystring}")
         
-        response = requests.request("GET", url, headers=headers, params=querystring)
+        response = requests.get(url, headers=headers, params=querystring)
         current_app.logger.info(f"API response status code: {response.status_code}")
         current_app.logger.info(f"API response headers: {response.headers}")
         
         response.raise_for_status()
-        
         data = response.json()
-        current_app.logger.info(f"API response data: {data}")  # Add this to see full response
-        
+        current_app.logger.info(f"API response data: {data}")
+
         if not data.get('response'):
-            current_app.logger.error(f"Invalid API response format or no fixtures found: {data}")
-            return
+            current_app.logger.error("No fixtures found in initial request, trying last 10 fixtures")
+            # If no upcoming fixtures, try to get last 10 fixtures
+            querystring["last"] = "10"
+            del querystring["next"]
             
-        fixtures = data['response']
+            response = requests.get(url, headers=headers, params=querystring)
+            response.raise_for_status()
+            data = response.json()
+            current_app.logger.info(f"Second API response data: {data}")
+            
+        fixtures = data.get('response', [])
         current_app.logger.info(f"Retrieved {len(fixtures)} fixtures from API")
         
         fixture_count = 0
         for fixture in fixtures:
-            existing_fixture = Fixture.query.filter_by(fixture_id=fixture['fixture']['id']).first()
-            if not existing_fixture:
-                try:
+            try:
+                existing_fixture = Fixture.query.filter_by(fixture_id=fixture['fixture']['id']).first()
+                if not existing_fixture:
                     new_fixture = Fixture(
                         fixture_id=fixture['fixture']['id'],
                         home_team=fixture['teams']['home']['name'],
@@ -94,12 +100,15 @@ def populate_initial_data():
                     )
                     db.session.add(new_fixture)
                     fixture_count += 1
-                except Exception as e:
-                    current_app.logger.error(f"Error processing fixture: {str(e)}")
-                    continue
-        
-        db.session.commit()
-        current_app.logger.info(f"Populated {fixture_count} new fixtures")
+            except Exception as e:
+                current_app.logger.error(f"Error processing fixture {fixture.get('fixture', {}).get('id')}: {str(e)}")
+                continue
+
+        if fixture_count > 0:
+            db.session.commit()
+            current_app.logger.info(f"Successfully populated {fixture_count} new fixtures")
+        else:
+            current_app.logger.warning("No new fixtures were added to the database")
         
     except requests.RequestException as e:
         current_app.logger.error(f"API request failed: {str(e)}")
