@@ -8,9 +8,13 @@ from flask import current_app
 BASE_URL = "https://v3.football.api-sports.io"
 
 def get_secret():
-    secret_name = "football_api_key"  # Hard-coded secret name
-    region_name = "us-east-1"         # Hard-coded region
+    secret_name = os.environ.get('SECRET_NAME')
+    region_name = os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')
     
+    if not secret_name:
+        current_app.logger.error("SECRET_NAME environment variable not set")
+        return None
+
     current_app.logger.info(f"Attempting to retrieve secret: {secret_name}")
     
     session = boto3.session.Session()
