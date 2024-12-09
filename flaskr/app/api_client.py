@@ -118,8 +118,8 @@ def populate_initial_data():
         'x-apisports-key': API_KEY
     }
 
-    league_id = "39"      # Premier League
-    season = "2023-2024"  # Current season
+    league_id = "39"  # Premier League
+    season = "2023"   # Changed back to just the year 
 
     # First get all rounds
     rounds = get_rounds(headers, league_id, season)
@@ -154,6 +154,7 @@ def populate_initial_data():
                         )
                         db.session.add(new_fixture)
                         fixture_count += 1
+                        current_app.logger.info(f"Added new fixture: {new_fixture.home_team} vs {new_fixture.away_team}")
                 except Exception as e:
                     current_app.logger.error(f"Error processing fixture {fixture.get('fixture', {}).get('id')}: {str(e)}")
                     continue
