@@ -13,10 +13,6 @@ def get_secret():
     
     if not secret_name:
         current_app.logger.error("SECRET_NAME environment variable not set")
-        # Log all environment variables for debugging
-        current_app.logger.error("Available environment variables:")
-        for key, value in os.environ.items():
-            current_app.logger.error(f"{key}: {value}")
         return None
 
     current_app.logger.info(f"Attempting to retrieve secret: {secret_name}")
@@ -29,7 +25,6 @@ def get_secret():
     )
 
     try:
-        # Log the exact parameters being used
         current_app.logger.info(f"Making GetSecretValue request with SecretId: {secret_name}")
         get_secret_value_response = client.get_secret_value(SecretId=secret_name)
         current_app.logger.info("Successfully retrieved secret value")
@@ -59,9 +54,15 @@ def get_rounds(headers, league_id, season):
 
     try:
         current_app.logger.info(f"Fetching rounds for league {league_id}, season {season}")
+        current_app.logger.info(f"Request URL: {url}")
+        current_app.logger.info(f"Request params: {params}")
+        current_app.logger.info(f"Request headers: {headers}")
+        
         response = requests.get(url, headers=headers, params=params)
         response.raise_for_status()
         data = response.json()
+        
+        current_app.logger.info(f"Response data: {data}")
         
         if data.get('response'):
             current_app.logger.info(f"Found {len(data['response'])} rounds")
@@ -84,9 +85,23 @@ def get_fixtures_for_round(headers, league_id, season, round_name):
 
     try:
         current_app.logger.info(f"Fetching fixtures for round: {round_name}")
+        current_app.logger.info(f"Request URL: {url}")
+        current_app.logger.info(f"Request params: {params}")
+        current_app.logger.info(f"Request headers: {headers}")
+        
         response = requests.get(url, headers=headers, params=params)
         response.raise_for_status()
-        return response.json().get('response', [])
+        
+        data = response.json()
+        current_app.logger.info(f"Response data for round {round_name}: {data}")
+        
+        if 'errors' in data:
+            current_app.logger.error(f"API returned errors for round {round_name}: {data['errors']}")
+            return []
+            
+        fixtures = data.get('response', [])
+        current_app.logger.info(f"Found {len(fixtures)} fixtures for round {round_name}")
+        return fixtures
     except Exception as e:
         current_app.logger.error(f"Error fetching fixtures for round {round_name}: {str(e)}")
         return []
@@ -103,8 +118,8 @@ def populate_initial_data():
         'x-apisports-key': API_KEY
     }
 
-    league_id = "39"  # Premier League
-    season = "2023"   # Current season
+    league_id = "39"      # Premier League
+    season = "2023-2024"  # Current season
 
     # First get all rounds
     rounds = get_rounds(headers, league_id, season)
