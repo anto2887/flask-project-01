@@ -13,9 +13,14 @@ def get_secret():
     
     if not secret_name:
         current_app.logger.error("SECRET_NAME environment variable not set")
+        # Log all environment variables for debugging
+        current_app.logger.error("Available environment variables:")
+        for key, value in os.environ.items():
+            current_app.logger.error(f"{key}: {value}")
         return None
 
     current_app.logger.info(f"Attempting to retrieve secret: {secret_name}")
+    current_app.logger.info(f"Using AWS region: {region_name}")
     
     session = boto3.session.Session()
     client = session.client(
@@ -24,14 +29,23 @@ def get_secret():
     )
 
     try:
+        # Log the exact parameters being used
+        current_app.logger.info(f"Making GetSecretValue request with SecretId: {secret_name}")
         get_secret_value_response = client.get_secret_value(SecretId=secret_name)
         current_app.logger.info("Successfully retrieved secret value")
         if 'SecretString' in get_secret_value_response:
             return get_secret_value_response['SecretString']
+        else:
+            current_app.logger.error("No SecretString in response")
+            return None
     except ClientError as e:
-        current_app.logger.error(f"Error retrieving secret: {str(e)}")
+        error_code = e.response['Error'].get('Code', 'Unknown')
+        error_message = e.response['Error'].get('Message', 'No message')
+        current_app.logger.error(f"Error retrieving secret. Code: {error_code}, Message: {error_message}")
+        current_app.logger.error(f"Full error: {str(e)}")
     except Exception as e:
         current_app.logger.error(f"Unexpected error retrieving secret: {str(e)}")
+        current_app.logger.error(f"Error type: {type(e)}")
     
     return None
 
