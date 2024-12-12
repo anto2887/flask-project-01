@@ -49,7 +49,7 @@ def get_rounds(headers, league_id, season):
     url = f"{BASE_URL}/fixtures/rounds"
     params = {
         "league": league_id,
-        "season": season
+        "season": int(season)  # Convert to integer
     }
 
     try:
@@ -79,7 +79,7 @@ def get_fixtures_for_round(headers, league_id, season, round_name):
     url = f"{BASE_URL}/fixtures"
     params = {
         "league": league_id,
-        "season": season,
+        "season": int(season),  # Convert to integer
         "round": round_name
     }
 
@@ -119,7 +119,7 @@ def populate_initial_data():
     }
 
     league_id = "39"  # Premier League
-    season = "2023"   # Changed back to just the year 
+    season = "2023"   # Current season
 
     # First get all rounds
     rounds = get_rounds(headers, league_id, season)
@@ -185,7 +185,7 @@ def get_fixtures(league_id, season, round):
     }
 
     url = f"{BASE_URL}/fixtures"
-    querystring = {"league": league_id, "season": season, "round": round}
+    querystring = {"league": league_id, "season": int(season), "round": round}  # Convert to integer
     
     try:
         response = requests.get(url, headers=headers, params=querystring)
