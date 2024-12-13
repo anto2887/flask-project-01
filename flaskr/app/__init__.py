@@ -130,7 +130,7 @@ def create_app(test_config=None):
 
         try:
             from app.cron_job import init_scheduler
-            init_scheduler(current_app._get_current_object())
+            init_scheduler(current_app)  # Changed from current_app._get_current_object()
         except Exception as e:
             current_app.logger.error("Error starting the scheduler:", exc_info=e)
 
@@ -138,7 +138,7 @@ def create_app(test_config=None):
     if app.config.get('POPULATE_DATA_ON_STARTUP'):
         app.population_thread = threading.Thread(
             target=populate_data_async,
-            args=(app._get_current_object(),),
+            args=(app,),  # Changed from app._get_current_object()
             daemon=True
         )
         app.population_thread.start()
