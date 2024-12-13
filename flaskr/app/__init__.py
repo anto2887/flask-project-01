@@ -31,6 +31,7 @@ def configure_logging(app):
         app.logger.setLevel(logging.INFO)
 
 def populate_data_async(app):
+    # Create a new application context for this thread
     with app.app_context():
         try:
             from app.api_client import populate_initial_data, is_initialization_complete
@@ -74,8 +75,9 @@ def create_app(test_config=None):
     def load_user(user_id):
         return Users.query.get(int(user_id))
 
-    with app.app_context():
-        if app.config.get('CREATE_TABLES_ON_STARTUP'):
+    # Create database tables if configured
+    if app.config.get('CREATE_TABLES_ON_STARTUP'):
+        with app.app_context():
             db.create_all()
 
     @app.route('/hello')
@@ -117,31 +119,30 @@ def create_app(test_config=None):
         return render_template('base.html')
 
     @app.cli.command('init-scheduler')
-    @with_appcontext
     def initialize_scheduler_command():
         try:
             engine = create_engine(DATABASE_URI)
             connection = engine.connect()
-            current_app.logger.info("Connected to database successfully!")
+            app.logger.info("Connected to database successfully!")
             connection.close()
         except Exception as e:
-            current_app.logger.error("Error connecting to the database:", exc_info=e)
+            app.logger.error("Error connecting to the database:", exc_info=e)
             return
 
         try:
             from app.cron_job import init_scheduler
-            init_scheduler(current_app)  # Changed from current_app._get_current_object()
+            init_scheduler(app)
         except Exception as e:
-            current_app.logger.error("Error starting the scheduler:", exc_info=e)
+            app.logger.error("Error starting the scheduler:", exc_info=e)
 
     # Start data population in background if configured
     if app.config.get('POPULATE_DATA_ON_STARTUP'):
-        app.population_thread = threading.Thread(
+        population_thread = threading.Thread(
             target=populate_data_async,
-            args=(app,),  # Changed from app._get_current_object()
+            args=(app._get_current_object(),),
             daemon=True
         )
-        app.population_thread.start()
+        population_thread.start()
         app.logger.info("Started background data population")
 
     return app
