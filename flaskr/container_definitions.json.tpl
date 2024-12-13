@@ -6,7 +6,8 @@
     "portMappings": [
       {
         "containerPort": 5000,
-        "hostPort": 5000
+        "hostPort": 5000,
+        "protocol": "tcp"
       }
     ],
     "logConfiguration": {
@@ -21,6 +22,10 @@
       {
         "name": "FLASK_APP",
         "value": "app"
+      },
+      {
+        "name": "FLASK_ENV",
+        "value": "production"
       },
       {
         "name": "PYTHONPATH",
@@ -61,6 +66,14 @@
       {
         "name": "SECRET_NAME",
         "value": "${api_football_key_name}"
+      },
+      {
+        "name": "GUNICORN_CMD_ARGS",
+        "value": "--workers=3 --threads=2 --timeout=120 --access-logfile=- --error-logfile=- --capture-output --enable-stdio-inheritance --log-level=info"
+      },
+      {
+        "name": "PYTHONUNBUFFERED",
+        "value": "1"
       }
     ],
     "secrets": [
@@ -70,9 +83,6 @@
       }
     ],
     "command": [
-      "/usr/local/bin/wait-for-it.sh",
-      "${db_host}:${db_port}",
-      "--",
       "/flaskr/entrypoint.sh"
     ],
     "healthCheck": {
@@ -80,10 +90,33 @@
         "CMD-SHELL",
         "curl -f http://localhost:5000/health || exit 1"
       ],
-      "interval": 300,
-      "timeout": 30,
+      "interval": 30,
+      "timeout": 5,
       "retries": 3,
       "startPeriod": 60
-    }
+    },
+    "ulimits": [
+      {
+        "name": "nofile",
+        "softLimit": 65536,
+        "hardLimit": 65536
+      }
+    ],
+    "mountPoints": [],
+    "volumesFrom": [],
+    "linuxParameters": {
+      "initProcessEnabled": true
+    },
+    "systemControls": [
+      {
+        "namespace": "net.core.somaxconn",
+        "value": "65535"
+      }
+    ],
+    "memory": 512,
+    "memoryReservation": 256,
+    "cpu": 256,
+    "privileged": false,
+    "readonlyRootFilesystem": false
   }
 ]

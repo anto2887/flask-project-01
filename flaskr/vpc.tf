@@ -4,10 +4,18 @@ resource "aws_vpc" "flaskr_vpc" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
   enable_dns_hostnames = true
+
+  tags = {
+    Name = "flaskr-vpc"
+  }
 }
 
 resource "aws_internet_gateway" "flaskr_igw" {
   vpc_id = aws_vpc.flaskr_vpc.id
+
+  tags = {
+    Name = "flaskr-igw"
+  }
 }
 
 resource "aws_route_table" "flaskr_public_rt" {
@@ -16,6 +24,10 @@ resource "aws_route_table" "flaskr_public_rt" {
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.flaskr_igw.id
+  }
+
+  tags = {
+    Name = "flaskr-public-rt"
   }
 }
 
@@ -50,6 +62,10 @@ resource "aws_subnet" "flaskr_private_subnet" {
 
 resource "aws_route_table" "flaskr_private_rt" {
   vpc_id = aws_vpc.flaskr_vpc.id
+
+  tags = {
+    Name = "flaskr-private-rt"
+  }
 }
 
 resource "aws_route_table_association" "flaskr_private_rt_assoc" {
@@ -64,6 +80,12 @@ resource "aws_lb" "flaskr_app_alb" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.flaskr_alb_sg.id]
   subnets            = aws_subnet.flaskr_public_subnet[*].id
+
+  enable_deletion_protection = true
+
+  tags = {
+    Name = "flaskr-alb"
+  }
 }
 
 resource "aws_lb_target_group" "flaskr_app_tg" {
@@ -75,11 +97,21 @@ resource "aws_lb_target_group" "flaskr_app_tg" {
 
   health_check {
     path                = "/health"
-    interval            = 300 # 1 hour in seconds
-    timeout             = 30  # Increased timeout for less frequent checks
+    interval            = 30
+    timeout             = 5
     healthy_threshold   = 2
-    unhealthy_threshold = 2
+    unhealthy_threshold = 3
     matcher             = "200"
+  }
+
+  stickiness {
+    type            = "lb_cookie"
+    cookie_duration = 86400
+    enabled         = true
+  }
+
+  tags = {
+    Name = "flaskr-tg"
   }
 }
 
@@ -87,6 +119,7 @@ resource "aws_lb_listener" "flaskr_app_http_listener" {
   load_balancer_arn = aws_lb.flaskr_app_alb.arn
   port              = "80"
   protocol          = "HTTP"
+
   default_action {
     type = "redirect"
     redirect {
@@ -101,8 +134,9 @@ resource "aws_lb_listener" "flaskr_app_https_listener" {
   load_balancer_arn = aws_lb.flaskr_app_alb.arn
   port              = "443"
   protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
   certificate_arn   = var.acm_certificate_arn
+
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.flaskr_app_tg.arn
@@ -110,8 +144,8 @@ resource "aws_lb_listener" "flaskr_app_https_listener" {
 }
 
 resource "aws_route53_record" "flaskr_alb" {
-  zone_id = "Z1013243V3H94OXCQ2KV" # Replace with your Route 53 hosted zone ID
-  name    = "ops76.co"             # Replace with your domain name
+  zone_id = "Z1013243V3H94OXCQ2KV"
+  name    = "ops76.co"
   type    = "A"
 
   alias {

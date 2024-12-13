@@ -52,13 +52,18 @@ COPY wait-for-it.sh /usr/local/bin/wait-for-it.sh
 COPY entrypoint.sh /flaskr/entrypoint.sh
 RUN chmod +x /usr/local/bin/wait-for-it.sh /flaskr/entrypoint.sh
 
+# Create logs directory
+RUN mkdir -p /flaskr/logs && chmod 777 /flaskr/logs
+
 # Expose port
 EXPOSE 5000
 
 # Set environment variables
 ENV FLASK_APP=app
+ENV FLASK_ENV=production
 ENV PYTHONPATH=/flaskr
 ENV CREATE_TABLES_ON_STARTUP=True
+ENV GUNICORN_CMD_ARGS="--bind=0.0.0.0:5000 --workers=3 --timeout=120 --access-logfile=- --error-logfile=- --capture-output --enable-stdio-inheritance"
 
 # Command to run the application
-CMD ["/bin/bash", "-c", "/usr/local/bin/wait-for-it.sh db:5432 --timeout=30 --strict -- /flaskr/entrypoint.sh"]
+ENTRYPOINT ["/flaskr/entrypoint.sh"]
