@@ -5,8 +5,24 @@ import time
 from botocore.exceptions import ClientError
 from app.models import db, Fixture
 from flask import current_app
+from datetime import datetime
+from app.models import db, Fixture, InitializationStatus
 
 BASE_URL = "https://v3.football.api-sports.io"
+
+def update_init_status(task, status, details=None):
+    init_status = InitializationStatus(
+        task=task,
+        status=status,
+        details=details,
+        timestamp=datetime.utcnow()
+    )
+    db.session.add(init_status)
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating initialization status: {str(e)}")
 
 def get_secret():
     secret_name = os.environ.get('SECRET_NAME')
@@ -134,9 +150,11 @@ def get_fixtures_for_round(headers, league_id, season, round_name):
 
 def populate_initial_data():
     current_app.logger.info("Starting initial data population")
+    update_init_status('fixture_population', 'in_progress')
     
     API_KEY = get_secret()
     if not API_KEY:
+        update_init_status('fixture_population', 'failed', 'Failed to retrieve API key')
         current_app.logger.error("Failed to retrieve API_FOOTBALL_KEY from Secrets Manager")
         return
 
@@ -150,6 +168,7 @@ def populate_initial_data():
     # First get all rounds
     rounds = get_rounds(headers, league_id, season)
     if not rounds:
+        update_init_status('fixture_population', 'failed', 'No rounds found')
         current_app.logger.error("No rounds found for the season")
         return
 
@@ -174,6 +193,8 @@ def populate_initial_data():
                                 fixture_id=fixture['fixture']['id'],
                                 home_team=fixture['teams']['home']['name'],
                                 away_team=fixture['teams']['away']['name'],
+                                home_team_logo=fixture['teams']['home']['logo'],  # Added this
+                                away_team_logo=fixture['teams']['away']['logo'],  # Added this
                                 date=fixture['fixture']['date'],
                                 league=fixture['league']['name'],
                                 season=fixture['league']['season'],
@@ -203,9 +224,11 @@ def populate_initial_data():
                 current_app.logger.info("Waiting between batches...")
                 time.sleep(30)
 
+        update_init_status('fixture_population', 'completed', f'Added {total_fixtures_added} fixtures')
         current_app.logger.info(f"Completed initial data population. Total fixtures added: {total_fixtures_added}")
 
     except Exception as e:
+        update_init_status('fixture_population', 'failed', str(e))
         current_app.logger.error(f"Error in populate_initial_data: {str(e)}")
         db.session.rollback()
 
@@ -257,3 +280,10 @@ def get_league_id(league_name):
         "UEFA Champions League": 2
     }
     return league_mapping.get(league_name)
+
+def is_initialization_complete():
+    """Check if data initialization is complete"""
+    latest_status = InitializationStatus.query.order_by(
+        InitializationStatus.timestamp.desc()
+    ).first()
+    return latest_status and latest_status.status == 'completed'

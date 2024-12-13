@@ -1,15 +1,16 @@
 import os
 import sys
 import logging
+import threading
 from logging.handlers import RotatingFileHandler
 
-from flask import Flask, current_app, render_template, redirect, url_for
+from flask import Flask, current_app, render_template, redirect, url_for, jsonify
 from flask_login import LoginManager, current_user
 from sqlalchemy import create_engine
 from flask.cli import with_appcontext
 
 from app.db import db
-from app.models import Users, Post, UserResults, Fixture
+from app.models import Users, Post, UserResults, Fixture, InitializationStatus
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
@@ -28,6 +29,16 @@ def configure_logging(app):
         file_handler.setLevel(logging.INFO)
         app.logger.addHandler(file_handler)
         app.logger.setLevel(logging.INFO)
+
+def populate_data_async(app):
+    with app.app_context():
+        try:
+            from app.api_client import populate_initial_data, is_initialization_complete
+            if not is_initialization_complete():
+                populate_initial_data()
+            app.logger.info("Background data population completed successfully")
+        except Exception as e:
+            app.logger.error(f"Background data population failed: {str(e)}")
 
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
@@ -66,9 +77,6 @@ def create_app(test_config=None):
     with app.app_context():
         if app.config.get('CREATE_TABLES_ON_STARTUP'):
             db.create_all()
-        if app.config.get('POPULATE_DATA_ON_STARTUP'):
-            from app.api_client import populate_initial_data
-            populate_initial_data()
 
     @app.route('/hello')
     def hello():
@@ -77,6 +85,19 @@ def create_app(test_config=None):
     @app.route('/health')
     def health():
         return 'OK', 200
+
+    @app.route('/initialization-status')
+    def initialization_status():
+        latest_status = InitializationStatus.query.order_by(
+            InitializationStatus.timestamp.desc()
+        ).first()
+        if latest_status:
+            return jsonify({
+                'status': latest_status.status,
+                'timestamp': latest_status.timestamp.isoformat(),
+                'details': latest_status.details
+            })
+        return jsonify({'status': 'unknown'}), 404
 
     try:
         from app import auth, blog, views
@@ -112,5 +133,15 @@ def create_app(test_config=None):
             init_scheduler(current_app._get_current_object())
         except Exception as e:
             current_app.logger.error("Error starting the scheduler:", exc_info=e)
+
+    # Start data population in background if configured
+    if app.config.get('POPULATE_DATA_ON_STARTUP'):
+        app.population_thread = threading.Thread(
+            target=populate_data_async,
+            args=(app._get_current_object(),),
+            daemon=True
+        )
+        app.population_thread.start()
+        app.logger.info("Started background data population")
 
     return app

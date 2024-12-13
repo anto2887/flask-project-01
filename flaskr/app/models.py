@@ -66,6 +66,17 @@ class UserPredictions(db.Model):
 
     __table_args__ = (db.UniqueConstraint('author_id', 'week', 'season', 'team1', 'team2', name='_author_week_season_teams_uc'),)
 
+# Add this new class to models.py
+class InitializationStatus(db.Model):
+    __tablename__ = 'initialization_status'
+
+    id = db.Column(db.Integer, primary_key=True)
+    task = db.Column(db.String(50), nullable=False)
+    status = db.Column(db.String(20), nullable=False)  # 'pending', 'in_progress', 'completed', 'failed'
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    details = db.Column(db.Text)
+
+# Update your Fixture class
 class Fixture(db.Model):
     __tablename__ = 'fixtures'
 
@@ -73,6 +84,8 @@ class Fixture(db.Model):
     fixture_id = db.Column(db.Integer, unique=True, nullable=False)
     home_team = db.Column(db.String, nullable=False)
     away_team = db.Column(db.String, nullable=False)
+    home_team_logo = db.Column(db.String)  # Add this
+    away_team_logo = db.Column(db.String)  # Add this
     date = db.Column(db.DateTime, nullable=False)
     league = db.Column(db.String, nullable=False)
     season = db.Column(db.String, nullable=False)
