@@ -21,15 +21,15 @@
     "environment": [
       {
         "name": "FLASK_APP",
-        "value": "app:create_app"
-      },
-      {
-        "name": "FLASK_ENV",
-        "value": "production"
+        "value": "app"
       },
       {
         "name": "PYTHONPATH",
         "value": "/flaskr"
+      },
+      {
+        "name": "FLASK_ENV",
+        "value": "production"
       },
       {
         "name": "CREATE_TABLES_ON_STARTUP",
@@ -68,10 +68,6 @@
         "value": "${api_football_key_name}"
       },
       {
-        "name": "GUNICORN_CMD_ARGS",
-        "value": "--workers=3 --threads=2 --timeout=120 --access-logfile=- --error-logfile=- --capture-output --enable-stdio-inheritance --log-level=info"
-      },
-      {
         "name": "PYTHONUNBUFFERED",
         "value": "1"
       }
@@ -88,31 +84,18 @@
     "healthCheck": {
       "command": [
         "CMD-SHELL",
-        "curl -f http://localhost:5000/health || exit 1"
+        "python3 -c \"from app import create_app; app=create_app(); ctx=app.test_request_context(); ctx.push(); print('Health check succeeded')\""
       ],
       "interval": 30,
       "timeout": 5,
       "retries": 3,
       "startPeriod": 60
     },
-    "ulimits": [
-      {
-        "name": "nofile",
-        "softLimit": 65536,
-        "hardLimit": 65536
-      }
-    ],
     "mountPoints": [],
     "volumesFrom": [],
     "linuxParameters": {
       "initProcessEnabled": true
     },
-    "systemControls": [
-      {
-        "namespace": "net.core.somaxconn",
-        "value": "65535"
-      }
-    ],
     "memory": 512,
     "memoryReservation": 256,
     "cpu": 256,

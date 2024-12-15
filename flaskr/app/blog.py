@@ -1,10 +1,9 @@
-from flask import (
-    Blueprint, flash, redirect, render_template, request, url_for, jsonify, current_app, abort
-)
+from flask import Blueprint, flash, redirect, render_template, request, url_for, jsonify, current_app, abort
 from flask_login import current_user, login_required
 from sqlalchemy import func
 from datetime import datetime
 
+# Import models individually to avoid circular imports
 from app.models import Post, Users, UserResults, UserPredictions, Group, user_groups, db
 from app.season import get_current_season
 
