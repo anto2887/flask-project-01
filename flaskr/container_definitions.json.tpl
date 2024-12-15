@@ -21,7 +21,7 @@
     "environment": [
       {
         "name": "FLASK_APP",
-        "value": "app"
+        "value": "app:create_app"
       },
       {
         "name": "FLASK_ENV",

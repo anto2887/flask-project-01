@@ -8,8 +8,9 @@ echo "Waiting for database..."
 # Initialize database if needed
 if [ "$CREATE_TABLES_ON_STARTUP" = "True" ]; then
     echo "Initializing database..."
-    flask init-db
+    FLASK_APP=app flask init-db
 fi
 
 echo "Starting Gunicorn..."
-exec gunicorn "app:create_app()" $GUNICORN_CMD_ARGS
+# Use app:create_app() as the WSGI callable
+exec gunicorn --bind 0.0.0.0:5000 "app:create_app()" $GUNICORN_CMD_ARGS

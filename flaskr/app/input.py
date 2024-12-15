@@ -1,6 +1,6 @@
-from app import app
 import re
-from app.models import Post, Group, db
+from flask import current_app
+from fuzzywuzzy import process
 
 # Define team_name_mapping
 team_name_mapping = {
@@ -37,9 +37,22 @@ team_name_mapping = {
 def standardize_team_name(name, league):
     if league not in team_name_mapping:
         return name
+    
+    # First try exact match
     for standard, variations in team_name_mapping[league].items():
         if name in variations:
             return standard
+    
+    # If no exact match, try fuzzy matching
+    all_variations = [(standard, var) 
+                     for standard, vars in team_name_mapping[league].items() 
+                     for var in vars]
+    
+    match = process.extractOne(name, [var for _, var in all_variations], score_cutoff=85)
+    if match:
+        matched_variation = match[0]
+        return next(standard for standard, var in all_variations if var == matched_variation)
+    
     return name
 
 def score_input(input_str, league):
@@ -57,7 +70,9 @@ def score_input(input_str, league):
     return results
 
 def get_latest_prediction(user_id, league, week, season):
-    with app.app_context():
+    with current_app.app_context():
+        from app.models import Post, Group
+        
         group = Group.query.filter_by(league=league).first()
         if not group:
             return None
