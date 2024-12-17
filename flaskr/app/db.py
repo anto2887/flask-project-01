@@ -1,6 +1,6 @@
 from flask import current_app, g
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import create_engine, MetaData, text
+from sqlalchemy import create_engine, MetaData, text, inspect
 import click
 
 # Set up the SQLAlchemy instance
@@ -15,29 +15,27 @@ def get_db():
 def init_db():
     """Initialize the database."""
     try:
-        # Drop all tables and sequences if environment variable is set
         if current_app.config.get('DROP_EXISTING_TABLES'):
             current_app.logger.info("Dropping existing tables and sequences...")
-            # Drop sequences first
             with db.engine.connect() as conn:
+                # Get current user
+                result = conn.execute(text("SELECT CURRENT_USER"))
+                current_user = result.scalar()
+                current_app.logger.info(f"Initializing database as user: {current_user}")
+
+                # Drop and recreate schema
                 conn.execute(text("""
-                    DO $$ 
-                    DECLARE 
-                        seq_name text;
-                    BEGIN 
-                        FOR seq_name IN (SELECT sequence_name 
-                                       FROM information_schema.sequences 
-                                       WHERE sequence_schema = 'public') 
-                        LOOP 
-                            EXECUTE 'DROP SEQUENCE IF EXISTS public.' || seq_name || ' CASCADE'; 
-                        END LOOP; 
-                    END $$;
+                    DROP SCHEMA IF EXISTS public CASCADE;
+                    CREATE SCHEMA public;
                 """))
-                conn.commit()
-            
-            # Then drop all tables
-            db.drop_all()
-            current_app.logger.info("Tables and sequences dropped successfully")
+                
+                # Grant privileges to current user
+                conn.execute(text(f"GRANT ALL ON SCHEMA public TO {current_user}"))
+                conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
+                
+                # Commit changes
+                conn.execute(text("COMMIT"))
+                current_app.logger.info("Schema reset completed")
         
         # Create tables
         db.create_all()

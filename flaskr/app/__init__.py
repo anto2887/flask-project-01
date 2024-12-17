@@ -36,15 +36,22 @@ def initialize_database(app):
         if app.config.get('DROP_EXISTING_TABLES'):
             app.logger.info("Starting database initialization...")
             with db.engine.connect() as conn:
-                # First drop tables
+                # Get current user
+                result = conn.execute(text("SELECT CURRENT_USER"))
+                current_user = result.scalar()
+                app.logger.info(f"Initializing database as user: {current_user}")
+
+                # Drop and recreate schema
                 conn.execute(text("""
-                    DROP SCHEMA public CASCADE;
+                    DROP SCHEMA IF EXISTS public CASCADE;
                     CREATE SCHEMA public;
-                    GRANT ALL ON SCHEMA public TO postgres;
-                    GRANT ALL ON SCHEMA public TO public;
                 """))
                 
-                # Commit the schema reset
+                # Grant privileges to current user
+                conn.execute(text(f"GRANT ALL ON SCHEMA public TO {current_user}"))
+                conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
+                
+                # Commit changes
                 conn.execute(text("COMMIT"))
                 app.logger.info("Schema reset completed")
 
@@ -97,6 +104,7 @@ def create_app(test_config=None):
         if app.config.get('CREATE_TABLES_ON_STARTUP'):
             try:
                 initialize_database(app)
+                app.logger.info("Database initialization completed successfully")
             except Exception as e:
                 app.logger.error(f"Failed to initialize database: {str(e)}")
                 raise
