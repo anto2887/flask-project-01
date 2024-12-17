@@ -34,43 +34,19 @@ def initialize_database(app):
     """Initialize database with proper sequence handling"""
     try:
         if app.config.get('DROP_EXISTING_TABLES'):
-            app.logger.info("Dropping existing tables and sequences...")
-            # Drop sequences and tables in correct order
+            app.logger.info("Starting database initialization...")
             with db.engine.connect() as conn:
-                # Modified SQL to handle empty results
+                # First drop tables
                 conn.execute(text("""
-                    DO $$ 
-                    DECLARE
-                        tables_to_drop text;
-                        sequences_to_drop text;
-                    BEGIN
-                        -- Get tables to drop
-                        SELECT string_agg(quote_ident(table_name), ', ')
-                        INTO tables_to_drop
-                        FROM information_schema.tables
-                        WHERE table_schema = 'public'
-                        AND table_type = 'BASE TABLE'
-                        AND table_name != 'spatial_ref_sys';
-                        
-                        -- Drop tables if they exist
-                        IF tables_to_drop IS NOT NULL THEN
-                            EXECUTE 'DROP TABLE IF EXISTS ' || tables_to_drop || ' CASCADE';
-                        END IF;
-                        
-                        -- Get sequences to drop
-                        SELECT string_agg(quote_ident(sequence_name), ', ')
-                        INTO sequences_to_drop
-                        FROM information_schema.sequences
-                        WHERE sequence_schema = 'public';
-                        
-                        -- Drop sequences if they exist
-                        IF sequences_to_drop IS NOT NULL THEN
-                            EXECUTE 'DROP SEQUENCE IF EXISTS ' || sequences_to_drop || ' CASCADE';
-                        END IF;
-                    END $$;
+                    DROP SCHEMA public CASCADE;
+                    CREATE SCHEMA public;
+                    GRANT ALL ON SCHEMA public TO postgres;
+                    GRANT ALL ON SCHEMA public TO public;
                 """))
+                
+                # Commit the schema reset
                 conn.execute(text("COMMIT"))
-            app.logger.info("Existing tables and sequences dropped successfully")
+                app.logger.info("Schema reset completed")
 
         # Create all tables
         db.create_all()
