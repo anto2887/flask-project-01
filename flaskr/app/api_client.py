@@ -3,28 +3,31 @@ import os
 import boto3
 import time
 from botocore.exceptions import ClientError
-from app.models import db, Fixture
+from app.models import db, Fixture, InitializationStatus
 from flask import current_app
 from datetime import datetime
-from app.models import db, Fixture, InitializationStatus
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import text
 
 BASE_URL = "https://v3.football.api-sports.io"
 
 def update_init_status(task, status, details=None):
-    init_status = InitializationStatus(
-        task=task,
-        status=status,
-        details=details,
-        timestamp=datetime.utcnow()
-    )
-    db.session.add(init_status)
+    """Update initialization status with proper session handling"""
     try:
+        init_status = InitializationStatus(
+            task=task,
+            status=status,
+            details=details,
+            timestamp=datetime.utcnow()
+        )
+        db.session.add(init_status)
         db.session.commit()
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error updating initialization status: {str(e)}")
 
 def get_secret():
+    """Get API key from AWS Secrets Manager"""
     secret_name = os.environ.get('SECRET_NAME')
     region_name = os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')
     
@@ -32,34 +35,25 @@ def get_secret():
         current_app.logger.error("SECRET_NAME environment variable not set")
         return None
 
-    current_app.logger.info(f"Attempting to retrieve secret: {secret_name}")
-    current_app.logger.info(f"Using AWS region: {region_name}")
-    
-    session = boto3.session.Session()
-    client = session.client(
-        service_name='secretsmanager',
-        region_name=region_name
-    )
-
     try:
-        current_app.logger.info(f"Making GetSecretValue request with SecretId: {secret_name}")
-        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
-        current_app.logger.info("Successfully retrieved secret value")
-        if 'SecretString' in get_secret_value_response:
-            return get_secret_value_response['SecretString']
-        else:
-            current_app.logger.error("No SecretString in response")
-            return None
+        session = boto3.session.Session()
+        client = session.client(
+            service_name='secretsmanager',
+            region_name=region_name
+        )
+        
+        response = client.get_secret_value(SecretId=secret_name)
+        if 'SecretString' in response:
+            return response['SecretString']
+        
+        current_app.logger.error("No SecretString in response")
+        return None
     except ClientError as e:
-        error_code = e.response['Error'].get('Code', 'Unknown')
-        error_message = e.response['Error'].get('Message', 'No message')
-        current_app.logger.error(f"Error retrieving secret. Code: {error_code}, Message: {error_message}")
-        current_app.logger.error(f"Full error: {str(e)}")
+        current_app.logger.error(f"AWS Secrets Manager error: {str(e)}")
+        return None
     except Exception as e:
         current_app.logger.error(f"Unexpected error retrieving secret: {str(e)}")
-        current_app.logger.error(f"Error type: {type(e)}")
-    
-    return None
+        return None
 
 def get_rounds(headers, league_id, season):
     """Get all rounds for a given league and season"""
@@ -70,34 +64,21 @@ def get_rounds(headers, league_id, season):
     }
 
     try:
-        current_app.logger.info(f"Fetching rounds for league {league_id}, season {season}")
-        current_app.logger.info(f"Request URL: {url}")
-        current_app.logger.info(f"Request params: {params}")
-        current_app.logger.info(f"Request headers: {headers}")
-        
         response = requests.get(url, headers=headers, params=params)
         response.raise_for_status()
         data = response.json()
         
-        current_app.logger.info(f"Response data: {data}")
-        
-        # Log rate limit information
-        remaining = response.headers.get('x-ratelimit-remaining')
-        if remaining:
-            current_app.logger.info(f"API calls remaining: {remaining}")
-        
-        if data.get('response'):
-            current_app.logger.info(f"Found {len(data['response'])} rounds")
-            return data['response']
-        else:
+        if not data.get('response'):
             current_app.logger.error("No rounds found in response")
             return []
+
+        return data['response']
     except Exception as e:
         current_app.logger.error(f"Error fetching rounds: {str(e)}")
         return []
 
 def get_fixtures_for_round(headers, league_id, season, round_name):
-    """Get fixtures for a specific round"""
+    """Get fixtures for a specific round with rate limiting"""
     url = f"{BASE_URL}/fixtures"
     params = {
         "league": league_id,
@@ -106,147 +87,141 @@ def get_fixtures_for_round(headers, league_id, season, round_name):
     }
 
     try:
-        current_app.logger.info(f"Fetching fixtures for round: {round_name}")
-        current_app.logger.info(f"Request URL: {url}")
-        current_app.logger.info(f"Request params: {params}")
-        current_app.logger.info(f"Request headers: {headers}")
-        
-        # Add delay between requests
-        time.sleep(6)  # Wait 6 seconds between requests to stay under rate limit
+        # Rate limiting delay
+        time.sleep(6)
         
         response = requests.get(url, headers=headers, params=params)
-        
-        # Log rate limit information
+        response.raise_for_status()
+        data = response.json()
+
+        # Check rate limits
         remaining = response.headers.get('x-ratelimit-remaining')
-        if remaining:
-            current_app.logger.info(f"API calls remaining: {remaining}")
-            
-        # If we're close to the rate limit, pause
         if remaining and int(remaining) < 5:
             current_app.logger.warning("Close to rate limit, pausing for 60 seconds")
             time.sleep(60)
-            
-        response.raise_for_status()
-        
-        data = response.json()
-        current_app.logger.info(f"Response data for round {round_name}: {data}")
-        
-        # Check if we're hitting rate limits
-        if 'errors' in data and 'ratelimit' in str(data['errors']).lower():
-            current_app.logger.warning("Rate limit reached, waiting for 60 seconds")
-            time.sleep(60)
+
+        if 'errors' in data:
+            current_app.logger.error(f"API returned errors: {data['errors']}")
             return []
-            
-        if 'errors' in data and data['errors'] and len(data['errors']) > 0:
-            current_app.logger.error(f"API returned errors for round {round_name}: {data['errors']}")
-            return []
-            
+
         fixtures = data.get('response', [])
-        current_app.logger.info(f"Found {len(fixtures)} fixtures for round {round_name}")
+        
+        # Validate fixture IDs
+        fixture_ids = [f['fixture']['id'] for f in fixtures]
+        if len(fixture_ids) != len(set(fixture_ids)):
+            current_app.logger.error(f"Duplicate fixture IDs found in round {round_name}")
+            return []
+
         return fixtures
     except Exception as e:
         current_app.logger.error(f"Error fetching fixtures for round {round_name}: {str(e)}")
         return []
 
+def update_or_create_fixture(fixture_data):
+    """Update existing fixture or create new one"""
+    try:
+        fixture_id = fixture_data['fixture']['id']
+        existing_fixture = Fixture.query.filter_by(fixture_id=fixture_id).first()
+        
+        fixture_dict = {
+            'fixture_id': fixture_id,
+            'home_team': fixture_data['teams']['home']['name'],
+            'away_team': fixture_data['teams']['away']['name'],
+            'home_team_logo': fixture_data['teams']['home']['logo'],
+            'away_team_logo': fixture_data['teams']['away']['logo'],
+            'date': fixture_data['fixture']['date'],
+            'league': fixture_data['league']['name'],
+            'season': fixture_data['league']['season'],
+            'round': fixture_data['league']['round'],
+            'status': fixture_data['fixture']['status']['long'],
+            'home_score': fixture_data['goals']['home'] if fixture_data['goals']['home'] is not None else 0,
+            'away_score': fixture_data['goals']['away'] if fixture_data['goals']['away'] is not None else 0
+        }
+
+        if existing_fixture:
+            for key, value in fixture_dict.items():
+                setattr(existing_fixture, key, value)
+            return False  # Not a new fixture
+        else:
+            new_fixture = Fixture(**fixture_dict)
+            db.session.add(new_fixture)
+            return True  # New fixture added
+    except Exception as e:
+        current_app.logger.error(f"Error processing fixture {fixture_data.get('fixture', {}).get('id')}: {str(e)}")
+        return False
+
 def populate_initial_data():
+    """Populate initial fixture data with improved error handling"""
     current_app.logger.info("Starting initial data population")
     update_init_status('fixture_population', 'in_progress')
     
     API_KEY = get_secret()
     if not API_KEY:
         update_init_status('fixture_population', 'failed', 'Failed to retrieve API key')
-        current_app.logger.error("Failed to retrieve API_FOOTBALL_KEY from Secrets Manager")
         return
 
-    headers = {
-        'x-apisports-key': API_KEY
-    }
-
+    headers = {'x-apisports-key': API_KEY}
     league_id = "39"  # Premier League
     season = "2023"   # Current season
 
-    # First get all rounds
     rounds = get_rounds(headers, league_id, season)
     if not rounds:
         update_init_status('fixture_population', 'failed', 'No rounds found')
-        current_app.logger.error("No rounds found for the season")
         return
 
     total_fixtures_added = 0
+    total_fixtures_updated = 0
     
     try:
-        # Process rounds in batches of 5
         for i in range(0, len(rounds), 5):
             batch = rounds[i:i+5]
-            current_app.logger.info(f"Processing batch of rounds {i+1}-{i+len(batch)}")
             
             for round_name in batch:
-                current_app.logger.info(f"Processing round: {round_name}")
                 fixtures = get_fixtures_for_round(headers, league_id, season, round_name)
                 
-                fixture_count = 0
                 for fixture in fixtures:
                     try:
-                        existing_fixture = Fixture.query.filter_by(fixture_id=fixture['fixture']['id']).first()
-                        if not existing_fixture:
-                            new_fixture = Fixture(
-                                fixture_id=fixture['fixture']['id'],
-                                home_team=fixture['teams']['home']['name'],
-                                away_team=fixture['teams']['away']['name'],
-                                home_team_logo=fixture['teams']['home']['logo'],  # Added this
-                                away_team_logo=fixture['teams']['away']['logo'],  # Added this
-                                date=fixture['fixture']['date'],
-                                league=fixture['league']['name'],
-                                season=fixture['league']['season'],
-                                round=fixture['league']['round'],
-                                status=fixture['fixture']['status']['long'],
-                                home_score=fixture['goals']['home'] if fixture['goals']['home'] is not None else 0,
-                                away_score=fixture['goals']['away'] if fixture['goals']['away'] is not None else 0
-                            )
-                            db.session.add(new_fixture)
-                            fixture_count += 1
-                            current_app.logger.info(f"Added new fixture: {new_fixture.home_team} vs {new_fixture.away_team}")
-                    except Exception as e:
-                        current_app.logger.error(f"Error processing fixture {fixture.get('fixture', {}).get('id')}: {str(e)}")
-                        continue
-
-                if fixture_count > 0:
-                    try:
+                        # Begin a new transaction for each fixture
+                        with db.session.begin_nested():
+                            if update_or_create_fixture(fixture):
+                                total_fixtures_added += 1
+                            else:
+                                total_fixtures_updated += 1
+                        
+                        # Commit after each fixture
                         db.session.commit()
-                        total_fixtures_added += fixture_count
-                        current_app.logger.info(f"Added {fixture_count} fixtures for round {round_name}")
-                    except Exception as e:
-                        current_app.logger.error(f"Error committing fixtures for round {round_name}: {str(e)}")
+                    except IntegrityError as e:
                         db.session.rollback()
+                        current_app.logger.error(f"Integrity error processing fixture: {str(e)}")
+                    except Exception as e:
+                        db.session.rollback()
+                        current_app.logger.error(f"Error processing fixture: {str(e)}")
             
             # Wait between batches
             if i + 5 < len(rounds):
-                current_app.logger.info("Waiting between batches...")
                 time.sleep(30)
 
-        update_init_status('fixture_population', 'completed', f'Added {total_fixtures_added} fixtures')
-        current_app.logger.info(f"Completed initial data population. Total fixtures added: {total_fixtures_added}")
+        status_message = f'Added {total_fixtures_added} fixtures, updated {total_fixtures_updated}'
+        update_init_status('fixture_population', 'completed', status_message)
+        current_app.logger.info(f"Completed initial data population. {status_message}")
 
     except Exception as e:
         update_init_status('fixture_population', 'failed', str(e))
         current_app.logger.error(f"Error in populate_initial_data: {str(e)}")
         db.session.rollback()
 
-def get_fixtures(league_id, season, round):
+def get_fixtures(league_id, season, round_name):
+    """Get fixtures with proper error handling"""
     API_KEY = get_secret()
     if not API_KEY:
-        current_app.logger.error("Failed to retrieve API_FOOTBALL_KEY from Secrets Manager")
         return None
 
-    headers = {
-        'x-apisports-key': API_KEY
-    }
-
+    headers = {'x-apisports-key': API_KEY}
     url = f"{BASE_URL}/fixtures"
-    querystring = {"league": league_id, "season": int(season), "round": round}
+    params = {"league": league_id, "season": int(season), "round": round_name}
     
     try:
-        response = requests.get(url, headers=headers, params=querystring)
+        response = requests.get(url, headers=headers, params=params)
         response.raise_for_status()
         
         data = response.json()
@@ -254,26 +229,19 @@ def get_fixtures(league_id, season, round):
             current_app.logger.error("Invalid API response format")
             return None
             
-        fixtures = data['response']
-        return [
-            {
-                'home_team': fixture['teams']['home']['name'],
-                'away_team': fixture['teams']['away']['name'],
-                'home_team_logo': fixture['teams']['home']['logo'],
-                'away_team_logo': fixture['teams']['away']['logo'],
-                'fixture_id': fixture['fixture']['id']
-            }
-            for fixture in fixtures
-        ]
-    except requests.RequestException as e:
-        current_app.logger.error(f"API request failed: {str(e)}")
-        if hasattr(e, 'response') and e.response is not None:
-            current_app.logger.error(f"Response content: {e.response.text}")
+        return [{
+            'home_team': fixture['teams']['home']['name'],
+            'away_team': fixture['teams']['away']['name'],
+            'home_team_logo': fixture['teams']['home']['logo'],
+            'away_team_logo': fixture['teams']['away']['logo'],
+            'fixture_id': fixture['fixture']['id']
+        } for fixture in data['response']]
     except Exception as e:
         current_app.logger.error(f"Error fetching fixtures: {str(e)}")
-    return None
+        return None
 
 def get_league_id(league_name):
+    """Get league ID from name"""
     league_mapping = {
         "Premier League": 39,
         "La Liga": 140,
@@ -283,7 +251,11 @@ def get_league_id(league_name):
 
 def is_initialization_complete():
     """Check if data initialization is complete"""
-    latest_status = InitializationStatus.query.order_by(
-        InitializationStatus.timestamp.desc()
-    ).first()
-    return latest_status and latest_status.status == 'completed'
+    try:
+        latest_status = InitializationStatus.query.order_by(
+            InitializationStatus.timestamp.desc()
+        ).first()
+        return latest_status and latest_status.status == 'completed'
+    except Exception as e:
+        current_app.logger.error(f"Error checking initialization status: {str(e)}")
+        return False
