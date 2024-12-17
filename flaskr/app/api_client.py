@@ -28,31 +28,46 @@ def update_init_status(task, status, details=None):
 
 def get_secret():
     """Get API key from AWS Secrets Manager"""
-    secret_name = os.environ.get('SECRET_NAME')
-    region_name = os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')
-    
-    if not secret_name:
-        current_app.logger.error("SECRET_NAME environment variable not set")
-        return None
-
     try:
+        current_app.logger.info("Starting secret retrieval process")
+        
+        secret_name = os.environ.get('SECRET_NAME')
+        current_app.logger.info(f"SECRET_NAME from environment: {secret_name}")
+        
+        region_name = os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')
+        current_app.logger.info(f"AWS region: {region_name}")
+        
+        if not secret_name:
+            current_app.logger.error("SECRET_NAME environment variable not set")
+            return None
+
+        # Log IAM context
+        try:
+            sts = boto3.client('sts')
+            identity = sts.get_caller_identity()
+            current_app.logger.info(f"AWS Identity: {identity.get('Arn')}")
+        except Exception as e:
+            current_app.logger.warning(f"Could not get AWS identity: {str(e)}")
+
         session = boto3.session.Session()
         client = session.client(
             service_name='secretsmanager',
             region_name=region_name
         )
         
+        current_app.logger.info("Attempting to retrieve secret value...")
         response = client.get_secret_value(SecretId=secret_name)
+        
         if 'SecretString' in response:
+            current_app.logger.info("Successfully retrieved secret value")
             return response['SecretString']
         
         current_app.logger.error("No SecretString in response")
+        current_app.logger.debug(f"Response keys available: {list(response.keys())}")
         return None
-    except ClientError as e:
-        current_app.logger.error(f"AWS Secrets Manager error: {str(e)}")
-        return None
+        
     except Exception as e:
-        current_app.logger.error(f"Unexpected error retrieving secret: {str(e)}")
+        current_app.logger.error(f"Error in get_secret: {str(e)}", exc_info=True)
         return None
 
 def get_rounds(headers, league_id, season):
@@ -79,42 +94,64 @@ def get_rounds(headers, league_id, season):
 
 def get_fixtures_for_round(headers, league_id, season, round_name):
     """Get fixtures for a specific round with rate limiting"""
-    url = f"{BASE_URL}/fixtures"
-    params = {
-        "league": league_id,
-        "season": int(season),
-        "round": round_name
-    }
-
     try:
+        current_app.logger.info(f"Starting fixture retrieval for round {round_name}")
+        
+        # Log API key status (safely)
+        api_key = headers.get('x-apisports-key', '')
+        if api_key:
+            current_app.logger.info(f"API key present (length: {len(api_key)})")
+        else:
+            current_app.logger.error("No API key in headers")
+
+        url = f"{BASE_URL}/fixtures"
+        params = {
+            "league": league_id,
+            "season": int(season),
+            "round": round_name
+        }
+        
+        current_app.logger.info(f"Making request to {url}")
+        current_app.logger.debug(f"Request parameters: {params}")
+        
         # Rate limiting delay
         time.sleep(6)
         
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        data = response.json()
-
-        # Check rate limits
-        remaining = response.headers.get('x-ratelimit-remaining')
-        if remaining and int(remaining) < 5:
-            current_app.logger.warning("Close to rate limit, pausing for 60 seconds")
-            time.sleep(60)
-
-        if 'errors' in data:
-            current_app.logger.error(f"API returned errors: {data['errors']}")
-            return []
-
-        fixtures = data.get('response', [])
+        response = requests.get(url, headers=headers, params=params, timeout=30)
         
-        # Validate fixture IDs
-        fixture_ids = [f['fixture']['id'] for f in fixtures]
-        if len(fixture_ids) != len(set(fixture_ids)):
-            current_app.logger.error(f"Duplicate fixture IDs found in round {round_name}")
+        current_app.logger.info(f"Response status code: {response.status_code}")
+        current_app.logger.info(f"Response headers: {dict(response.headers)}")
+        
+        try:
+            response_text = response.text
+            current_app.logger.debug(f"Raw response text: {response_text[:500]}...")  # Log first 500 chars
+            
+            data = response.json()
+            current_app.logger.info(f"Successfully parsed JSON response")
+            current_app.logger.debug(f"Response data structure: {list(data.keys()) if isinstance(data, dict) else 'not a dict'}")
+            
+            if 'errors' in data:
+                current_app.logger.error(f"API errors found: {data['errors']}")
+                return []
+                
+            if 'response' not in data:
+                current_app.logger.error(f"No 'response' key in data. Keys found: {list(data.keys())}")
+                return []
+            
+            fixtures = data['response']
+            current_app.logger.info(f"Retrieved {len(fixtures)} fixtures")
+            return fixtures
+            
+        except ValueError as e:
+            current_app.logger.error(f"JSON parsing error: {str(e)}")
+            current_app.logger.error(f"Response content: {response.text[:1000]}")  # Log first 1000 chars
             return []
-
-        return fixtures
+            
+    except requests.exceptions.RequestException as e:
+        current_app.logger.error(f"Request failed: {str(e)}", exc_info=True)
+        return []
     except Exception as e:
-        current_app.logger.error(f"Error fetching fixtures for round {round_name}: {str(e)}")
+        current_app.logger.error(f"Unexpected error: {str(e)}", exc_info=True)
         return []
 
 def update_or_create_fixture(fixture_data):
