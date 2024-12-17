@@ -81,7 +81,7 @@ resource "aws_lb" "flaskr_app_alb" {
   security_groups    = [aws_security_group.flaskr_alb_sg.id]
   subnets            = aws_subnet.flaskr_public_subnet[*].id
 
-  enable_deletion_protection = true
+  enable_deletion_protection = false
 
   tags = {
     Name = "flaskr-alb"
