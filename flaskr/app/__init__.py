@@ -6,7 +6,7 @@ from logging.handlers import RotatingFileHandler
 
 from flask import Flask, current_app, render_template, redirect, url_for, jsonify
 from flask_login import LoginManager, current_user
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from flask.cli import with_appcontext
 
 from app.db import db, init_db
@@ -29,6 +29,43 @@ def populate_data_async(app):
             app.logger.info("Background data population completed successfully")
         except Exception as e:
             app.logger.error(f"Background data population failed: {str(e)}")
+
+def initialize_database(app):
+    """Initialize database with proper sequence handling"""
+    try:
+        if app.config.get('DROP_EXISTING_TABLES'):
+            app.logger.info("Dropping existing tables and sequences...")
+            # Drop sequences and tables in correct order
+            with db.engine.connect() as conn:
+                conn.execute(text("""
+                    DO $$ 
+                    BEGIN
+                        -- Drop all tables
+                        EXECUTE (
+                            SELECT 'DROP TABLE IF EXISTS ' || string_agg(quote_ident(table_name), ', ') || ' CASCADE'
+                            FROM information_schema.tables
+                            WHERE table_schema = 'public'
+                            AND table_name != 'spatial_ref_sys'
+                        );
+                        -- Drop all sequences
+                        EXECUTE (
+                            SELECT 'DROP SEQUENCE IF EXISTS ' || string_agg(quote_ident(sequence_name), ', ') || ' CASCADE'
+                            FROM information_schema.sequences
+                            WHERE sequence_schema = 'public'
+                        );
+                    END $$;
+                """))
+                conn.execute(text("COMMIT"))
+            app.logger.info("Existing tables and sequences dropped successfully")
+
+        # Create all tables
+        db.create_all()
+        app.logger.info("Database tables created successfully")
+        
+        return True
+    except Exception as e:
+        app.logger.error(f"Database initialization error: {str(e)}")
+        raise
 
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
@@ -68,7 +105,11 @@ def create_app(test_config=None):
     # Initialize database if configured
     with app.app_context():
         if app.config.get('CREATE_TABLES_ON_STARTUP'):
-            init_db()
+            try:
+                initialize_database(app)
+            except Exception as e:
+                app.logger.error(f"Failed to initialize database: {str(e)}")
+                raise
 
     @app.route('/hello')
     def hello():

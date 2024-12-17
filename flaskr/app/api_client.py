@@ -7,17 +7,36 @@ from botocore.exceptions import ClientError
 from app.models import db, Fixture, InitializationStatus
 from flask import current_app
 from datetime import datetime
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError, ProgrammingError
+from sqlalchemy import text, inspect
 
 BASE_URL = "https://v3.football.api-sports.io"
 RATE_LIMIT_PAUSE = 15  # Seconds between API calls
 BATCH_PAUSE = 60      # Seconds between batches
 MIN_RATE_LIMIT = 50   # Minimum remaining calls before forcing pause
 
+def ensure_tables_exist():
+    """Ensure all required tables exist before proceeding"""
+    try:
+        inspector = inspect(db.engine)
+        existing_tables = inspector.get_table_names()
+        
+        current_app.logger.info(f"Existing tables: {existing_tables}")
+        
+        if 'fixtures' not in existing_tables or 'initialization_status' not in existing_tables:
+            current_app.logger.info("Required tables missing. Creating all tables...")
+            db.create_all()
+            current_app.logger.info("Tables created successfully")
+            return True
+        return False
+    except Exception as e:
+        current_app.logger.error(f"Error checking/creating tables: {str(e)}")
+        raise
+
 def update_init_status(task, status, details=None):
     """Update initialization status with proper session handling"""
     try:
+        ensure_tables_exist()  # Ensure tables exist before any operation
         init_status = InitializationStatus(
             task=task,
             status=status,
@@ -93,7 +112,7 @@ def get_rounds(headers, league_id, season):
 
     try:
         current_app.logger.info(f"Fetching rounds for league {league_id} season {season}")
-        time.sleep(RATE_LIMIT_PAUSE)  # Rate limiting
+        time.sleep(RATE_LIMIT_PAUSE)
         
         response = requests.get(url, headers=headers, params=params)
         check_rate_limit(response.headers)
@@ -129,7 +148,6 @@ def get_fixtures_for_round(headers, league_id, season, round_name):
             "round": round_name
         }
         
-        # Enhanced rate limiting
         time.sleep(RATE_LIMIT_PAUSE)
         
         response = requests.get(url, headers=headers, params=params, timeout=30)
@@ -163,6 +181,8 @@ def get_fixtures_for_round(headers, league_id, season, round_name):
 def update_or_create_fixture(fixture_data):
     """Update existing fixture or create new one"""
     try:
+        ensure_tables_exist()  # Ensure tables exist before any operation
+        
         fixture_id = fixture_data['fixture']['id']
         existing_fixture = Fixture.query.filter_by(fixture_id=fixture_id).first()
         
@@ -194,44 +214,47 @@ def update_or_create_fixture(fixture_data):
         return False
 
 def populate_initial_data():
-    """Populate initial fixture data with improved error handling and rate limiting"""
+    """Populate initial fixture data with improved error handling and table verification"""
     current_app.logger.info("Starting initial data population")
     
-    if current_app.config.get('DROP_EXISTING_TABLES'):
-        try:
-            Fixture.query.delete()
-            InitializationStatus.query.delete()
-            db.session.commit()
-            current_app.logger.info("Cleared existing fixtures and initialization status")
-        except Exception as e:
-            current_app.logger.error(f"Error clearing existing data: {str(e)}")
-            db.session.rollback()
-            raise
-    
-    update_init_status('fixture_population', 'in_progress')
-    
-    API_KEY = get_secret()
-    if not API_KEY:
-        update_init_status('fixture_population', 'failed', 'Failed to retrieve API key')
-        return
-
-    headers = {'x-apisports-key': API_KEY}
-    league_id = "39"  # Premier League
-    season = "2023"   # Current season
-
-    # Add initial delay to prevent multiple instances from hitting the API simultaneously
-    time.sleep(random.randint(1, 30))
-
-    rounds = get_rounds(headers, league_id, season)
-    if not rounds:
-        update_init_status('fixture_population', 'failed', 'No rounds found')
-        return
-
-    total_fixtures_added = 0
-    total_fixtures_updated = 0
-    
     try:
-        for i in range(0, len(rounds), 3):  # Process fewer rounds at a time
+        # Ensure tables exist before any operations
+        tables_created = ensure_tables_exist()
+        if tables_created:
+            current_app.logger.info("Database tables were just created")
+        
+        if current_app.config.get('DROP_EXISTING_TABLES'):
+            try:
+                Fixture.query.delete()
+                InitializationStatus.query.delete()
+                db.session.commit()
+                current_app.logger.info("Cleared existing fixtures and initialization status")
+            except Exception as e:
+                current_app.logger.error(f"Error clearing existing data: {str(e)}")
+                db.session.rollback()
+        
+        update_init_status('fixture_population', 'in_progress')
+        
+        API_KEY = get_secret()
+        if not API_KEY:
+            update_init_status('fixture_population', 'failed', 'Failed to retrieve API key')
+            return
+
+        headers = {'x-apisports-key': API_KEY}
+        league_id = "39"  # Premier League
+        season = "2023"   # Current season
+
+        time.sleep(random.randint(1, 30))
+
+        rounds = get_rounds(headers, league_id, season)
+        if not rounds:
+            update_init_status('fixture_population', 'failed', 'No rounds found')
+            return
+
+        total_fixtures_added = 0
+        total_fixtures_updated = 0
+        
+        for i in range(0, len(rounds), 3):
             batch = rounds[i:i+3]
             
             for round_name in batch:
@@ -245,14 +268,11 @@ def populate_initial_data():
                             else:
                                 total_fixtures_updated += 1
                         db.session.commit()
-                    except IntegrityError as e:
-                        db.session.rollback()
-                        current_app.logger.error(f"Integrity error processing fixture: {str(e)}")
                     except Exception as e:
                         db.session.rollback()
                         current_app.logger.error(f"Error processing fixture: {str(e)}")
+                        continue
             
-            # Longer wait between batches
             if i + 3 < len(rounds):
                 time.sleep(BATCH_PAUSE)
 
@@ -261,9 +281,9 @@ def populate_initial_data():
         current_app.logger.info(f"Completed initial data population. {status_message}")
 
     except Exception as e:
-        update_init_status('fixture_population', 'failed', str(e))
         current_app.logger.error(f"Error in populate_initial_data: {str(e)}")
-        db.session.rollback()
+        update_init_status('fixture_population', 'failed', str(e))
+        raise
 
 def get_fixtures(league_id, season, round_name):
     """Get fixtures with proper error handling and rate limiting"""
@@ -276,7 +296,7 @@ def get_fixtures(league_id, season, round_name):
     params = {"league": league_id, "season": int(season), "round": round_name}
     
     try:
-        time.sleep(RATE_LIMIT_PAUSE)  # Rate limiting
+        time.sleep(RATE_LIMIT_PAUSE)
         response = requests.get(url, headers=headers, params=params)
         check_rate_limit(response.headers)
         
@@ -310,6 +330,7 @@ def get_league_id(league_name):
 def is_initialization_complete():
     """Check if data initialization is complete"""
     try:
+        ensure_tables_exist()  # Ensure tables exist before checking
         latest_status = InitializationStatus.query.order_by(
             InitializationStatus.timestamp.desc()
         ).first()
