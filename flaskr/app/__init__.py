@@ -50,7 +50,8 @@ def create_app(test_config=None):
         SQLALCHEMY_DATABASE_URI=DATABASE_URI,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         CREATE_TABLES_ON_STARTUP=os.environ.get("CREATE_TABLES_ON_STARTUP") == 'True',
-        POPULATE_DATA_ON_STARTUP=os.environ.get("POPULATE_DATA_ON_STARTUP") == 'True'
+        POPULATE_DATA_ON_STARTUP=os.environ.get("POPULATE_DATA_ON_STARTUP") == 'True',
+        DROP_EXISTING_TABLES=os.environ.get("DROP_EXISTING_TABLES") == 'True'
     )
 
     if test_config is None:
@@ -71,9 +72,19 @@ def create_app(test_config=None):
     with app.app_context():
         if app.config.get('CREATE_TABLES_ON_STARTUP'):
             db.create_all()
-        if app.config.get('POPULATE_DATA_ON_STARTUP'):
-            from app.api_client import populate_initial_data
-            populate_initial_data()
+
+    @app.route('/populate-data')
+    def populate_data():
+        try:
+            if app.config.get('POPULATE_DATA_ON_STARTUP'):
+                from app.api_client import populate_initial_data
+                populate_initial_data()
+                app.logger.info("Data population completed successfully")
+                return 'Data population complete', 200
+            return 'Data population not enabled', 200
+        except Exception as e:
+            app.logger.error(f"Error during data population: {str(e)}")
+            return 'Error during data population', 500
 
     @app.route('/hello')
     def hello():
@@ -106,16 +117,16 @@ def create_app(test_config=None):
         try:
             engine = create_engine(DATABASE_URI)
             connection = engine.connect()
-            current_app.logger.info("Connected to database successfully!")
+            app.logger.info("Connected to database successfully!")
             connection.close()
         except Exception as e:
-            current_app.logger.error("Error connecting to the database:", exc_info=e)
+            app.logger.error("Error connecting to the database:", exc_info=e)
             return
 
         try:
             from app.cron_job import init_scheduler
-            init_scheduler(current_app._get_current_object())
+            init_scheduler(app)
         except Exception as e:
-            current_app.logger.error("Error starting the scheduler:", exc_info=e)
+            app.logger.error("Error starting the scheduler:", exc_info=e)
 
     return app
