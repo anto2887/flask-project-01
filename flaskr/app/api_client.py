@@ -153,6 +153,20 @@ def update_or_create_fixture(fixture_data):
 def populate_initial_data():
     """Populate initial fixture data with improved error handling"""
     current_app.logger.info("Starting initial data population")
+    
+    # Clear existing data if dropping tables
+    if current_app.config.get('DROP_EXISTING_TABLES'):
+        try:
+            # Clear all existing data
+            Fixture.query.delete()
+            InitializationStatus.query.delete()
+            db.session.commit()
+            current_app.logger.info("Cleared existing fixtures and initialization status")
+        except Exception as e:
+            current_app.logger.error(f"Error clearing existing data: {str(e)}")
+            db.session.rollback()
+            raise
+    
     update_init_status('fixture_population', 'in_progress')
     
     API_KEY = get_secret()

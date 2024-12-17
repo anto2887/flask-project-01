@@ -9,13 +9,13 @@ from flask_login import LoginManager, current_user
 from sqlalchemy import create_engine
 from flask.cli import with_appcontext
 
-from app.db import db
+from app.db import db, init_db
 from app.models import Users, Post, UserResults, Fixture, InitializationStatus
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 
-DATABASE_URI = os.environ.get("SQLALCHEMY_DATABASE_URI")  # Add this back
+DATABASE_URI = os.environ.get("SQLALCHEMY_DATABASE_URI")
 
 def configure_logging(app):
     # Keep your current logging configuration
@@ -46,7 +46,8 @@ def create_app(test_config=None):
         SQLALCHEMY_DATABASE_URI=DATABASE_URI,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         CREATE_TABLES_ON_STARTUP=os.environ.get("CREATE_TABLES_ON_STARTUP") == 'True',
-        POPULATE_DATA_ON_STARTUP=os.environ.get("POPULATE_DATA_ON_STARTUP") == 'True'
+        POPULATE_DATA_ON_STARTUP=os.environ.get("POPULATE_DATA_ON_STARTUP") == 'True',
+        DROP_EXISTING_TABLES=os.environ.get("DROP_EXISTING_TABLES") == 'True'
     )
 
     if test_config is None:
@@ -64,10 +65,10 @@ def create_app(test_config=None):
     def load_user(user_id):
         return Users.query.get(int(user_id))
 
-    # Create database tables if configured
+    # Initialize database if configured
     with app.app_context():
         if app.config.get('CREATE_TABLES_ON_STARTUP'):
-            db.create_all()
+            init_db()
 
     @app.route('/hello')
     def hello():
@@ -77,7 +78,7 @@ def create_app(test_config=None):
     def health():
         return 'OK', 200
 
-    @app.route('/population-status')  # Add this back
+    @app.route('/population-status')
     def population_status():
         if hasattr(app, 'population_thread') and app.population_thread.is_alive():
             return 'Data population in progress', 202
@@ -102,7 +103,7 @@ def create_app(test_config=None):
         return render_template('base.html')
 
     @app.cli.command('init-scheduler')
-    @with_appcontext  # Add this decorator back
+    @with_appcontext
     def initialize_scheduler_command():
         try:
             engine = create_engine(DATABASE_URI)
@@ -121,9 +122,9 @@ def create_app(test_config=None):
 
     # Start data population in background if configured
     if app.config.get('POPULATE_DATA_ON_STARTUP'):
-        app.population_thread = threading.Thread(  # Store thread on app
+        app.population_thread = threading.Thread(
             target=populate_data_async,
-            args=(app,),  # Pass app directly
+            args=(app,),
             daemon=True
         )
         app.population_thread.start()

@@ -40,6 +40,10 @@
         "value": "True"
       },
       {
+        "name": "DROP_EXISTING_TABLES",
+        "value": "True"
+      },
+      {
         "name": "DB_HOST",
         "value": "${db_host}"
       },
