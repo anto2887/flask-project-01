@@ -88,7 +88,7 @@
     "healthCheck": {
       "command": [
         "CMD-SHELL",
-        "python3 -c \"from app import create_app; app=create_app(); ctx=app.test_request_context(); ctx.push(); print('Health check succeeded')\""
+        "curl -f http://localhost:5000/health || exit 1"
       ],
       "interval": 30,
       "timeout": 5,

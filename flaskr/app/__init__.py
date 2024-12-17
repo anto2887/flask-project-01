@@ -1,16 +1,15 @@
 import os
 import sys
 import logging
-import threading
 from logging.handlers import RotatingFileHandler
 
-from flask import Flask, current_app, render_template, redirect, url_for, jsonify
+from flask import Flask, current_app, render_template, redirect, url_for
 from flask_login import LoginManager, current_user
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from flask.cli import with_appcontext
 
-from app.db import db, init_db
-from app.models import Users, Post, UserResults, Fixture, InitializationStatus
+from app.db import db
+from app.models import Users, Post, UserResults, Fixture
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
@@ -18,51 +17,22 @@ sys.path.append(os.path.dirname(SCRIPT_DIR))
 DATABASE_URI = os.environ.get("SQLALCHEMY_DATABASE_URI")
 
 def configure_logging(app):
-    # Keep your current logging configuration
-    pass
-
-def populate_data_async(app):
-    with app.app_context():
-        try:
-            from app.api_client import populate_initial_data
-            populate_initial_data()
-            app.logger.info("Background data population completed successfully")
-        except Exception as e:
-            app.logger.error(f"Background data population failed: {str(e)}")
-
-def initialize_database(app):
-    """Initialize database with proper sequence handling"""
-    try:
-        if app.config.get('DROP_EXISTING_TABLES'):
-            app.logger.info("Starting database initialization...")
-            with db.engine.connect() as conn:
-                # Get current user
-                result = conn.execute(text("SELECT CURRENT_USER"))
-                current_user = result.scalar()
-                app.logger.info(f"Initializing database as user: {current_user}")
-
-                # Drop and recreate schema
-                conn.execute(text("""
-                    DROP SCHEMA IF EXISTS public CASCADE;
-                    CREATE SCHEMA public;
-                """))
-                
-                # Grant privileges to current user
-                conn.execute(text(f"GRANT ALL ON SCHEMA public TO {current_user}"))
-                conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
-                
-                # Commit changes
-                conn.execute(text("COMMIT"))
-                app.logger.info("Schema reset completed")
-
-        # Create all tables
-        db.create_all()
-        app.logger.info("Database tables created successfully")
+    if not app.debug:
+        log_dir = '/flaskr/logs'
+        if not os.path.exists(log_dir):
+            os.mkdir(log_dir)
         
-        return True
-    except Exception as e:
-        app.logger.error(f"Database initialization error: {str(e)}")
-        raise
+        file_handler = RotatingFileHandler(
+            os.path.join(log_dir, 'flaskr.log'),
+            maxBytes=10_240_000,
+            backupCount=5
+        )
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+        ))
+        file_handler.setLevel(logging.INFO)
+        app.logger.addHandler(file_handler)
+        app.logger.setLevel(logging.INFO)
 
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
@@ -80,8 +50,7 @@ def create_app(test_config=None):
         SQLALCHEMY_DATABASE_URI=DATABASE_URI,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         CREATE_TABLES_ON_STARTUP=os.environ.get("CREATE_TABLES_ON_STARTUP") == 'True',
-        POPULATE_DATA_ON_STARTUP=os.environ.get("POPULATE_DATA_ON_STARTUP") == 'True',
-        DROP_EXISTING_TABLES=os.environ.get("DROP_EXISTING_TABLES") == 'True'
+        POPULATE_DATA_ON_STARTUP=os.environ.get("POPULATE_DATA_ON_STARTUP") == 'True'
     )
 
     if test_config is None:
@@ -99,15 +68,12 @@ def create_app(test_config=None):
     def load_user(user_id):
         return Users.query.get(int(user_id))
 
-    # Initialize database if configured
     with app.app_context():
         if app.config.get('CREATE_TABLES_ON_STARTUP'):
-            try:
-                initialize_database(app)
-                app.logger.info("Database initialization completed successfully")
-            except Exception as e:
-                app.logger.error(f"Failed to initialize database: {str(e)}")
-                raise
+            db.create_all()
+        if app.config.get('POPULATE_DATA_ON_STARTUP'):
+            from app.api_client import populate_initial_data
+            populate_initial_data()
 
     @app.route('/hello')
     def hello():
@@ -117,13 +83,6 @@ def create_app(test_config=None):
     def health():
         return 'OK', 200
 
-    @app.route('/population-status')
-    def population_status():
-        if hasattr(app, 'population_thread') and app.population_thread.is_alive():
-            return 'Data population in progress', 202
-        return 'Data population complete', 200
-
-    # Register blueprints
     try:
         from app import auth, blog, views
         app.register_blueprint(auth.bp)
@@ -147,26 +106,16 @@ def create_app(test_config=None):
         try:
             engine = create_engine(DATABASE_URI)
             connection = engine.connect()
-            app.logger.info("Connected to database successfully!")
+            current_app.logger.info("Connected to database successfully!")
             connection.close()
         except Exception as e:
-            app.logger.error("Error connecting to the database:", exc_info=e)
+            current_app.logger.error("Error connecting to the database:", exc_info=e)
             return
 
         try:
             from app.cron_job import init_scheduler
-            init_scheduler(app)
+            init_scheduler(current_app._get_current_object())
         except Exception as e:
-            app.logger.error("Error starting the scheduler:", exc_info=e)
-
-    # Start data population in background if configured
-    if app.config.get('POPULATE_DATA_ON_STARTUP'):
-        app.population_thread = threading.Thread(
-            target=populate_data_async,
-            args=(app,),
-            daemon=True
-        )
-        app.population_thread.start()
-        app.logger.info("Started background data population")
+            current_app.logger.error("Error starting the scheduler:", exc_info=e)
 
     return app

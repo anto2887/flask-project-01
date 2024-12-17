@@ -25,10 +25,27 @@ EOF
 fi
 
 echo "Starting Gunicorn..."
-exec gunicorn \
+# Start Gunicorn in the background
+gunicorn \
     --bind 0.0.0.0:5000 \
     --worker-class=gthread \
     --workers=3 \
     --threads=2 \
     --timeout=120 \
-    "app:create_app()"
+    "app:create_app()" &
+
+# Wait for the app to be healthy
+echo "Waiting for app to be healthy..."
+until curl -s http://localhost:5000/health > /dev/null; do
+    sleep 5
+done
+
+# Start data population if enabled
+if [ "$POPULATE_DATA_ON_STARTUP" = "True" ]; then
+    echo "Starting data population..."
+    curl -s http://localhost:5000/populate-data
+    echo "Data population triggered"
+fi
+
+# Keep the container running by waiting for the Gunicorn process
+wait $!
