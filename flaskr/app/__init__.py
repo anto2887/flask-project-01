@@ -37,22 +37,36 @@ def initialize_database(app):
             app.logger.info("Dropping existing tables and sequences...")
             # Drop sequences and tables in correct order
             with db.engine.connect() as conn:
+                # Modified SQL to handle empty results
                 conn.execute(text("""
                     DO $$ 
+                    DECLARE
+                        tables_to_drop text;
+                        sequences_to_drop text;
                     BEGIN
-                        -- Drop all tables
-                        EXECUTE (
-                            SELECT 'DROP TABLE IF EXISTS ' || string_agg(quote_ident(table_name), ', ') || ' CASCADE'
-                            FROM information_schema.tables
-                            WHERE table_schema = 'public'
-                            AND table_name != 'spatial_ref_sys'
-                        );
-                        -- Drop all sequences
-                        EXECUTE (
-                            SELECT 'DROP SEQUENCE IF EXISTS ' || string_agg(quote_ident(sequence_name), ', ') || ' CASCADE'
-                            FROM information_schema.sequences
-                            WHERE sequence_schema = 'public'
-                        );
+                        -- Get tables to drop
+                        SELECT string_agg(quote_ident(table_name), ', ')
+                        INTO tables_to_drop
+                        FROM information_schema.tables
+                        WHERE table_schema = 'public'
+                        AND table_type = 'BASE TABLE'
+                        AND table_name != 'spatial_ref_sys';
+                        
+                        -- Drop tables if they exist
+                        IF tables_to_drop IS NOT NULL THEN
+                            EXECUTE 'DROP TABLE IF EXISTS ' || tables_to_drop || ' CASCADE';
+                        END IF;
+                        
+                        -- Get sequences to drop
+                        SELECT string_agg(quote_ident(sequence_name), ', ')
+                        INTO sequences_to_drop
+                        FROM information_schema.sequences
+                        WHERE sequence_schema = 'public';
+                        
+                        -- Drop sequences if they exist
+                        IF sequences_to_drop IS NOT NULL THEN
+                            EXECUTE 'DROP SEQUENCE IF EXISTS ' || sequences_to_drop || ' CASCADE';
+                        END IF;
                     END $$;
                 """))
                 conn.execute(text("COMMIT"))
