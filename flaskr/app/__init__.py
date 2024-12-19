@@ -22,6 +22,7 @@ def configure_logging(app):
         if not os.path.exists(log_dir):
             os.mkdir(log_dir)
         
+        # Configure file handler
         file_handler = RotatingFileHandler(
             os.path.join(log_dir, 'flaskr.log'),
             maxBytes=10_240_000,
@@ -33,6 +34,10 @@ def configure_logging(app):
         file_handler.setLevel(logging.INFO)
         app.logger.addHandler(file_handler)
         app.logger.setLevel(logging.INFO)
+
+        # Add CloudWatch handler if in AWS environment
+        if os.environ.get('AWS_EXECUTION_ENV'):
+            app.logger.info('Configuring CloudWatch logging')
 
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
@@ -49,6 +54,12 @@ def create_app(test_config=None):
         SECRET_KEY=os.environ.get('SECRET_KEY', 'dev'),
         SQLALCHEMY_DATABASE_URI=DATABASE_URI,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        SQLALCHEMY_ENGINE_OPTIONS={
+            'pool_size': 10,
+            'pool_timeout': 30,
+            'pool_recycle': 1800,
+            'max_overflow': 2
+        },
         CREATE_TABLES_ON_STARTUP=os.environ.get("CREATE_TABLES_ON_STARTUP") == 'True',
         POPULATE_DATA_ON_STARTUP=os.environ.get("POPULATE_DATA_ON_STARTUP") == 'True',
         DROP_EXISTING_TABLES=os.environ.get("DROP_EXISTING_TABLES") == 'True'
@@ -72,6 +83,7 @@ def create_app(test_config=None):
     with app.app_context():
         if app.config.get('CREATE_TABLES_ON_STARTUP'):
             db.create_all()
+            app.logger.info("Database tables created successfully")
 
     @app.route('/populate-data')
     def populate_data():
@@ -92,7 +104,13 @@ def create_app(test_config=None):
 
     @app.route('/health')
     def health():
-        return 'OK', 200
+        try:
+            # Check database connection
+            db.session.execute('SELECT 1')
+            return 'OK', 200
+        except Exception as e:
+            app.logger.error(f"Health check failed: {str(e)}")
+            return 'Service Unavailable', 503
 
     try:
         from app import auth, blog, views
@@ -110,23 +128,5 @@ def create_app(test_config=None):
         if not current_user.is_authenticated:
             return redirect(url_for('auth.login'))
         return render_template('base.html')
-
-    @app.cli.command('init-scheduler')
-    @with_appcontext
-    def initialize_scheduler_command():
-        try:
-            engine = create_engine(DATABASE_URI)
-            connection = engine.connect()
-            app.logger.info("Connected to database successfully!")
-            connection.close()
-        except Exception as e:
-            app.logger.error("Error connecting to the database:", exc_info=e)
-            return
-
-        try:
-            from app.cron_job import init_scheduler
-            init_scheduler(app)
-        except Exception as e:
-            app.logger.error("Error starting the scheduler:", exc_info=e)
 
     return app
