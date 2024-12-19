@@ -1,14 +1,11 @@
-import requests
-import os
 import boto3
-import time
+import os
 from botocore.exceptions import ClientError
-from app.models import db, Fixture
 from flask import current_app
-
-BASE_URL = "https://v3.football.api-sports.io"
-RATE_LIMIT_PAUSE = 6  # Seconds between API calls
-BATCH_PAUSE = 30     # Seconds between batches
+from app.services.football_api import FootballAPIService
+from app.services.score_processing import ScoreProcessingService
+from app.models import db, Fixture
+from datetime import datetime
 
 def get_secret():
     """Get API key from AWS Secrets Manager"""
@@ -39,159 +36,96 @@ def get_secret():
         current_app.logger.error(f"Error retrieving secret: {str(e)}")
         return None
 
-def get_rounds(headers, league_id, season):
-    """Get all rounds for a given league and season"""
-    url = f"{BASE_URL}/fixtures/rounds"
-    params = {
-        "league": league_id,
-        "season": int(season)
-    }
-
-    try:
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        data = response.json()
+def initialize_services():
+    """Initialize API services"""
+    api_key = get_secret()
+    if not api_key:
+        raise ValueError("Failed to retrieve API key")
         
-        if not data.get('response'):
-            current_app.logger.error("No rounds found in response")
-            return []
-
-        current_app.logger.info(f"Successfully retrieved {len(data['response'])} rounds")
-        return data['response']
-    except Exception as e:
-        current_app.logger.error(f"Error fetching rounds: {str(e)}")
-        return []
-
-def get_fixtures_for_round(headers, league_id, season, round_name):
-    """Get fixtures for a specific round"""
-    url = f"{BASE_URL}/fixtures"
-    params = {
-        "league": league_id,
-        "season": int(season),
-        "round": round_name
-    }
-
-    try:
-        current_app.logger.info(f"Fetching fixtures for round: {round_name}")
-        
-        # Rate limiting delay
-        time.sleep(RATE_LIMIT_PAUSE)
-        
-        response = requests.get(url, headers=headers, params=params)
-        
-        # Check rate limits
-        remaining = response.headers.get('x-ratelimit-remaining')
-        if remaining and int(remaining) < 5:
-            current_app.logger.warning("Close to rate limit, pausing for 60 seconds")
-            time.sleep(60)
-        
-        response.raise_for_status()
-        data = response.json()
-        
-        if 'errors' in data and data['errors']:
-            current_app.logger.error(f"API returned errors: {data['errors']}")
-            return []
-        
-        fixtures = data.get('response', [])
-        current_app.logger.info(f"Found {len(fixtures)} fixtures for round {round_name}")
-        return fixtures
-    except Exception as e:
-        current_app.logger.error(f"Error fetching fixtures for round {round_name}: {str(e)}")
-        return []
+    football_api = FootballAPIService(api_key)
+    score_processor = ScoreProcessingService(football_api)
+    return football_api, score_processor
 
 def populate_initial_data():
     """Populate initial fixture data"""
     current_app.logger.info("Starting initial data population")
     
-    API_KEY = get_secret()
-    if not API_KEY:
-        current_app.logger.error("Failed to retrieve API key")
-        return
-
-    headers = {
-        'x-apisports-key': API_KEY
-    }
-
-    league_id = "39"  # Premier League
-    season = "2023"   # Current season
-
-    rounds = get_rounds(headers, league_id, season)
-    if not rounds:
-        current_app.logger.error("No rounds found for the season")
-        return
-
-    total_fixtures_added = 0
-    
     try:
-        for i in range(0, len(rounds), 5):
-            batch = rounds[i:i+5]
-            current_app.logger.info(f"Processing batch of rounds {i+1}-{i+len(batch)}")
+        football_api, _ = initialize_services()
+        
+        # League IDs
+        leagues = {
+            "Premier League": 39,
+            "La Liga": 140,
+            "UEFA Champions League": 2
+        }
+        
+        for league_name, league_id in leagues.items():
+            current_app.logger.info(f"Processing league: {league_name}")
             
-            for round_name in batch:
-                fixtures = get_fixtures_for_round(headers, league_id, season, round_name)
-                
-                for fixture in fixtures:
-                    try:
-                        existing_fixture = Fixture.query.filter_by(
-                            fixture_id=fixture['fixture']['id']
-                        ).first()
-                        
-                        if not existing_fixture:
-                            new_fixture = Fixture(
-                                fixture_id=fixture['fixture']['id'],
-                                home_team=fixture['teams']['home']['name'],
-                                away_team=fixture['teams']['away']['name'],
-                                home_team_logo=fixture['teams']['home']['logo'],
-                                away_team_logo=fixture['teams']['away']['logo'],
-                                date=fixture['fixture']['date'],
-                                league=fixture['league']['name'],
-                                season=fixture['league']['season'],
-                                round=fixture['league']['round'],
-                                status=fixture['fixture']['status']['long'],
-                                home_score=fixture['goals']['home'] if fixture['goals']['home'] is not None else 0,
-                                away_score=fixture['goals']['away'] if fixture['goals']['away'] is not None else 0
-                            )
-                            db.session.add(new_fixture)
-                            total_fixtures_added += 1
-                    except Exception as e:
-                        current_app.logger.error(f"Error processing fixture: {str(e)}")
-                        db.session.rollback()
-                        continue
-
+            # Get current season fixtures
+            fixtures = football_api.get_fixtures_by_date(league_id=league_id, date=datetime.now().strftime('%Y-%m-%d'))
+            
+            if not fixtures:
+                current_app.logger.info(f"No fixtures found for {league_name}")
+                continue
+            
+            for fixture_data in fixtures:
                 try:
+                    existing_fixture = Fixture.query.filter_by(
+                        fixture_id=fixture_data['fixture']['id']
+                    ).first()
+                    
+                    if not existing_fixture:
+                        new_fixture = Fixture(
+                            fixture_id=fixture_data['fixture']['id'],
+                            home_team=fixture_data['teams']['home']['name'],
+                            away_team=fixture_data['teams']['away']['name'],
+                            home_team_logo=fixture_data['teams']['home']['logo'],
+                            away_team_logo=fixture_data['teams']['away']['logo'],
+                            date=datetime.strptime(fixture_data['fixture']['date'], '%Y-%m-%dT%H:%M:%S%z'),
+                            league=league_name,
+                            season=str(fixture_data['league']['season']),
+                            round=fixture_data['league']['round'],
+                            status=fixture_data['fixture']['status']['long'],
+                            home_score=fixture_data['goals']['home'] if fixture_data['goals']['home'] is not None else 0,
+                            away_score=fixture_data['goals']['away'] if fixture_data['goals']['away'] is not None else 0,
+                            venue_city=fixture_data['fixture']['venue']['city'],
+                            competition_id=league_id,
+                            match_timestamp=datetime.strptime(fixture_data['fixture']['timestamp'], '%Y-%m-%dT%H:%M:%S%z'),
+                            last_checked=datetime.utcnow()
+                        )
+                        db.session.add(new_fixture)
+                        current_app.logger.info(f"Added new fixture: {new_fixture.home_team} vs {new_fixture.away_team}")
+                    
                     db.session.commit()
-                    current_app.logger.info(f"Committed fixtures for round {round_name}")
                 except Exception as e:
-                    current_app.logger.error(f"Error committing fixtures: {str(e)}")
                     db.session.rollback()
-            
-            # Wait between batches
-            if i + 5 < len(rounds):
-                time.sleep(BATCH_PAUSE)
-
-        current_app.logger.info(f"Completed initial data population. Added {total_fixtures_added} fixtures")
-
+                    current_app.logger.error(f"Error processing fixture: {str(e)}")
+                    continue
+                
+        current_app.logger.info("Completed initial data population")
+        
     except Exception as e:
         current_app.logger.error(f"Error in populate_initial_data: {str(e)}")
-        db.session.rollback()
+        raise
 
-def get_fixtures(league_id, season, round_name):
+def get_fixtures(league_id: int, season: str, round_name: str = None):
     """Get fixtures for viewing"""
-    API_KEY = get_secret()
-    if not API_KEY:
-        return None
-
-    headers = {'x-apisports-key': API_KEY}
-    url = f"{BASE_URL}/fixtures"
-    params = {"league": league_id, "season": int(season), "round": round_name}
-    
     try:
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        data = response.json()
+        football_api, _ = initialize_services()
         
-        if 'response' not in data:
-            current_app.logger.error("Invalid API response format")
+        params = {
+            'league': league_id,
+            'season': season
+        }
+        if round_name:
+            params['round'] = round_name
+            
+        fixtures = football_api.get_fixtures_by_date(**params)
+        
+        if not fixtures:
+            current_app.logger.warning("No fixtures found")
             return None
             
         return [{
@@ -200,12 +134,13 @@ def get_fixtures(league_id, season, round_name):
             'home_team_logo': fixture['teams']['home']['logo'],
             'away_team_logo': fixture['teams']['away']['logo'],
             'fixture_id': fixture['fixture']['id']
-        } for fixture in data['response']]
+        } for fixture in fixtures]
+        
     except Exception as e:
         current_app.logger.error(f"Error fetching fixtures: {str(e)}")
         return None
 
-def get_league_id(league_name):
+def get_league_id(league_name: str) -> int:
     """Get league ID from name"""
     league_mapping = {
         "Premier League": 39,
@@ -213,3 +148,20 @@ def get_league_id(league_name):
         "UEFA Champions League": 2
     }
     return league_mapping.get(league_name)
+
+def process_live_scores():
+    """Process live scores for all leagues"""
+    try:
+        _, score_processor = initialize_services()
+        
+        for league_name, league_id in {
+            "Premier League": 39,
+            "La Liga": 140,
+            "UEFA Champions League": 2
+        }.items():
+            current_app.logger.info(f"Processing live scores for {league_name}")
+            score_processor.process_live_matches(league_id)
+            
+    except Exception as e:
+        current_app.logger.error(f"Error processing live scores: {str(e)}")
+        raise
