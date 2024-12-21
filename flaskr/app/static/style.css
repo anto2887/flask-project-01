@@ -336,3 +336,215 @@ input[type="number"] {
 .submit-btn:hover {
     background-color: #45a049;
 }
+
+/* Live Matches and Predictions Sections */
+.matches-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    padding: 15px;
+}
+
+.match-card {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-top: 4px solid var(--medium-blue);
+}
+
+.match-status {
+    text-align: center;
+    color: #e74c3c;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.match-info {
+    text-align: center;
+    color: var(--dark-blue);
+    font-size: 0.9em;
+    margin-bottom: 10px;
+}
+
+.match-teams {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.team {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.home-team {
+    text-align: right;
+}
+
+.away-team {
+    text-align: left;
+    flex-direction: row-reverse;
+}
+
+.team-logo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+
+.team-name {
+    font-weight: bold;
+    color: var(--dark-blue);
+    flex: 1;
+}
+
+.home-team .team-name {
+    text-align: right;
+}
+
+.away-team .team-name {
+    text-align: left;
+}
+
+.score, .score-input {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: var(--medium-blue);
+    width: 50px;
+    text-align: center;
+}
+
+.score-input {
+    padding: 5px;
+    border: 2px solid var(--light-turquoise);
+    border-radius: 4px;
+    background-color: white;
+}
+
+.score-input:disabled {
+    background-color: #f5f5f5;
+    border-color: #ddd;
+    cursor: not-allowed;
+}
+
+.vs {
+    font-weight: bold;
+    color: var(--dark-blue);
+    padding: 0 10px;
+}
+
+.prediction-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.submit-prediction, .reset-prediction {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+.submit-prediction {
+    background-color: var(--medium-blue);
+    color: white;
+}
+
+.submit-prediction:hover {
+    background-color: var(--dark-blue);
+}
+
+.reset-prediction {
+    background-color: #f8f9fa;
+    color: var(--dark-blue);
+    border: 1px solid var(--light-turquoise);
+}
+
+.reset-prediction:hover {
+    background-color: #e9ecef;
+}
+
+.submit-prediction:disabled, .reset-prediction:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.no-matches {
+    text-align: center;
+    color: var(--dark-blue);
+    font-style: italic;
+    padding: 20px;
+    grid-column: 1 / -1;
+}
+
+/* Animation for score updates */
+@keyframes scoreUpdate {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+.score-updated {
+    animation: scoreUpdate 0.5s ease;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .matches-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .match-teams {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .team {
+        justify-content: center;
+    }
+
+    .home-team, .away-team {
+        text-align: center;
+    }
+
+    .team-name {
+        text-align: center;
+    }
+
+    .vs {
+        padding: 5px 0;
+    }
+}
+
+/* Loading state */
+.loading {
+    position: relative;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 30px;
+    height: 30px;
+    border: 3px solid var(--light-turquoise);
+    border-top-color: var(--medium-blue);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}

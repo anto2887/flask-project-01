@@ -14,7 +14,6 @@
                 {% if current_user.is_authenticated %}
                     <span>{{ current_user.username }}</span>
                     <a href="{{ url_for('auth.logout') }}">Log Out</a>
-                    <a href="{{ url_for('blog.create') }}">Post Prediction</a>
                     <a href="{{ url_for('group.create_group') }}">Create Group</a>
                     <a href="{{ url_for('group.manage_groups') }}">Manage Groups</a>
                 {% else %}
@@ -27,6 +26,77 @@
 
     <div class="container">
         {% if current_user.is_authenticated %}
+            <!-- Live Matches Section -->
+            <div class="live-matches card">
+                <h2>Live Matches</h2>
+                <div id="live-matches-container" class="matches-grid">
+                    {% for match in live_matches %}
+                        <div class="match-card" data-fixture-id="{{ match.fixture_id }}">
+                            <div class="match-status">{{ match.status.value }}</div>
+                            <div class="match-teams">
+                                <div class="team home-team">
+                                    <img src="{{ match.home_team_logo }}" alt="{{ match.home_team }} logo" class="team-logo">
+                                    <span class="team-name">{{ match.home_team }}</span>
+                                    <span class="score">{{ match.home_score }}</span>
+                                </div>
+                                <div class="vs">VS</div>
+                                <div class="team away-team">
+                                    <span class="score">{{ match.away_score }}</span>
+                                    <span class="team-name">{{ match.away_team }}</span>
+                                    <img src="{{ match.away_team_logo }}" alt="{{ match.away_team }} logo" class="team-logo">
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <p class="no-matches">No live matches at the moment</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Prediction Input Section -->
+            <div class="predictions card">
+                <h2>Make Your Predictions</h2>
+                <div id="prediction-inputs" class="matches-grid">
+                    {% for match in upcoming_matches %}
+                        <div class="match-card" data-fixture-id="{{ match.fixture_id }}">
+                            <div class="match-info">Kickoff: {{ match.date.strftime('%Y-%m-%d %H:%M') }}</div>
+                            <div class="match-teams">
+                                <div class="team home-team">
+                                    <img src="{{ match.home_team_logo }}" alt="{{ match.home_team }} logo" class="team-logo">
+                                    <span class="team-name">{{ match.home_team }}</span>
+                                    <input type="number" 
+                                           min="0" 
+                                           class="score-input" 
+                                           name="home_score" 
+                                           {% if match.status != 'NOT_STARTED' %}disabled{% endif %}>
+                                </div>
+                                <div class="vs">VS</div>
+                                <div class="team away-team">
+                                    <input type="number" 
+                                           min="0" 
+                                           class="score-input" 
+                                           name="away_score"
+                                           {% if match.status != 'NOT_STARTED' %}disabled{% endif %}>
+                                    <span class="team-name">{{ match.away_team }}</span>
+                                    <img src="{{ match.away_team_logo }}" alt="{{ match.away_team }} logo" class="team-logo">
+                                </div>
+                            </div>
+                            <div class="prediction-actions">
+                                <button class="btn submit-prediction" data-fixture-id="{{ match.fixture_id }}">
+                                    Submit
+                                </button>
+                                <button class="btn reset-prediction" data-fixture-id="{{ match.fixture_id }}">
+                                    Reset
+                                </button>
+                            </div>
+                        </div>
+                    {% else %}
+                        <p class="no-matches">No upcoming matches available for prediction</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- User Results Section -->
             <div class="top-section card">
                 <div class="user-results">
                     <h2>User Results</h2>
@@ -61,35 +131,11 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="recent-prediction">
-                    <h2>Your Recent Prediction</h2>
-                    {% if recent_prediction and not recent_prediction_processed %}
-                        {{ recent_prediction.body }}
-                        <a href="{{ url_for('blog.update', id=recent_prediction.id) }}" class="btn">Edit</a>
-                    {% elif recent_prediction_processed %}
-                        <p>Your latest prediction has been processed. You can make a new prediction now.</p>
-                    {% else %}
-                        <p>No recent predictions.</p>
-                    {% endif %}
-                </div>
             </div>
             
+            <!-- Top Performers Section -->
             <div class="top-performers card">
                 <h2>Top Performers This Week</h2>
-                <div class="filters">
-                    <select id="topPerformersGroupSelect">
-                        <option value="">All Groups</option>
-                        {% for group in user_groups %}
-                            <option value="{{ group.id }}">{{ group.name }}</option>
-                        {% endfor %}
-                    </select>
-                    <select id="topPerformersMatchdaySelect">
-                        <option value="">All Matchdays</option>
-                        {% for matchday in matchdays %}
-                            <option value="{{ matchday }}">Matchday {{ matchday }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
                 <ol id="topPerformersList">
                     {% for performer in top_performers %}
                         <li>{{ performer.username }} - <span class="points">{{ performer.points }} points</span></li>
@@ -97,109 +143,15 @@
                 </ol>
             </div>
             
-            <div class="bottom-section card">
-                <h2>Previous Predictions</h2>
-                <div class="filters">
-                    <select id="previousPredictionsGroupSelect">
-                        <option value="">All Groups</option>
-                        {% for group in user_groups %}
-                            <option value="{{ group.id }}">{{ group.name }}</option>
-                        {% endfor %}
-                    </select>
-                    <select id="previousPredictionsSeasonSelect">
-                        <option value="">All Seasons</option>
-                        {% for season in seasons %}
-                            <option value="{{ season }}">{{ season }}</option>
-                        {% endfor %}
-                    </select>
-                    <select id="previousPredictionsMatchdaySelect">
-                        <option value="">All Matchdays</option>
-                        {% for matchday in matchdays %}
-                            <option value="{{ matchday }}">Matchday {{ matchday }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <table id="previousPredictionsTable">
-                    <thead>
-                        <tr>
-                            <th>Prediction</th>
-                            <th>Points</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for prediction in previous_predictions %}
-                            <tr>
-                                <td>{{ prediction.team1 }} {{ prediction.score1 }} - {{ prediction.score2 }} {{ prediction.team2 }}</td>
-                                <td>{{ prediction.points }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
         {% else %}
             <div class="card">
                 <h2>Welcome to PrdiktIt</h2>
                 <p>Please log in or register to start making predictions!</p>
             </div>
         {% endif %}
-
-        {% block content %}{% endblock %}
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            function updateUserResults() {
-                var groupId = $('#groupSelect').val();
-                var season = $('#seasonSelect').val();
-                $.getJSON("{{ url_for('blog.get_filtered_results') }}", {
-                    group_id: groupId,
-                    season: season
-                }, function(data) {
-                    var tableBody = $('#userResultsTable tbody');
-                    tableBody.empty();
-                    $.each(data, function(index, item) {
-                        tableBody.append('<tr><td>' + item.username + '</td><td>' + item.points + '</td></tr>');
-                    });
-                });
-            }
-
-            function updateTopPerformers() {
-                var groupId = $('#topPerformersGroupSelect').val();
-                var matchday = $('#topPerformersMatchdaySelect').val();
-                $.getJSON("{{ url_for('blog.get_top_performers_route') }}", {
-                    group_id: groupId,
-                    matchday: matchday
-                }, function(data) {
-                    var list = $('#topPerformersList');
-                    list.empty();
-                    $.each(data, function(index, item) {
-                        list.append('<li>' + item.username + ' - <span class="points">' + item.points + ' points</span></li>');
-                    });
-                });
-            }
-
-            function updatePreviousPredictions() {
-                var groupId = $('#previousPredictionsGroupSelect').val();
-                var season = $('#previousPredictionsSeasonSelect').val();
-                var matchday = $('#previousPredictionsMatchdaySelect').val();
-                $.getJSON("{{ url_for('blog.get_previous_predictions') }}", {
-                    group_id: groupId,
-                    season: season,
-                    matchday: matchday
-                }, function(data) {
-                    var tableBody = $('#previousPredictionsTable tbody');
-                    tableBody.empty();
-                    $.each(data, function(index, item) {
-                        tableBody.append('<tr><td>' + item.team1 + ' ' + item.score1 + ' - ' + item.score2 + ' ' + item.team2 + '</td><td>' + item.points + '</td></tr>');
-                    });
-                });
-            }
-
-            $('#groupSelect, #seasonSelect').change(updateUserResults);
-            $('#topPerformersGroupSelect, #topPerformersMatchdaySelect').change(updateTopPerformers);
-            $('#previousPredictionsGroupSelect, #previousPredictionsSeasonSelect, #previousPredictionsMatchdaySelect').change(updatePreviousPredictions);
-        });
-    </script>
+    <script src="{{ url_for('static', filename='js/match-updates.js') }}"></script>
 </body>
 </html>

@@ -11,6 +11,12 @@ class MatchStatus(Enum):
     POSTPONED = "POSTPONED"
     CANCELLED = "CANCELLED"
 
+class PredictionStatus(Enum):
+    EDITABLE = "EDITABLE"      # Can be edited
+    SUBMITTED = "SUBMITTED"    # Submitted but can be reset
+    LOCKED = "LOCKED"         # Match started, can't edit
+    PROCESSED = "PROCESSED"   # Points calculated
+
 user_groups = db.Table('user_groups',
     db.Column('user_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
     db.Column('group_id', db.Integer, db.ForeignKey('groups.id'), primary_key=True)
@@ -72,10 +78,18 @@ class UserPredictions(db.Model):
     score2 = db.Column(db.Integer, nullable=False)
     points = db.Column(db.Integer, nullable=False, default=0)
     created = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    processed = db.Column(db.Boolean, default=False)
-
+    
+    # New fields
+    prediction_status = db.Column(db.Enum(PredictionStatus), 
+                                nullable=False, 
+                                default=PredictionStatus.EDITABLE)
+    submission_time = db.Column(db.DateTime, nullable=True)
+    last_modified = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    
     __table_args__ = (
         db.UniqueConstraint('author_id', 'fixture_id', name='_user_fixture_uc'),
+        db.Index('idx_predictions_status', 'prediction_status'),  # Index for status queries
+        db.Index('idx_predictions_fixture', 'fixture_id')         # Index for fixture queries
     )
 
 class Fixture(db.Model):
@@ -97,8 +111,18 @@ class Fixture(db.Model):
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     venue = db.Column(db.String)
     referee = db.Column(db.String)
-    predictions = db.relationship('UserPredictions', backref='fixture', lazy=True)
     league_id = db.Column(db.Integer)
+    
+    # Relationships
+    predictions = db.relationship('UserPredictions', 
+                                backref='fixture', 
+                                lazy=True,
+                                cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        db.Index('idx_fixture_date_status', 'date', 'status'),
+        db.Index('idx_fixture_league_season', 'league', 'season')
+    )
 
 class InitializationStatus(db.Model):
     __tablename__ = 'initialization_status'
