@@ -25,6 +25,7 @@ python-Levenshtein==0.23.0
 pytz==2023.3.post1
 qrcode==8.0
 rapidfuzz==3.5.2
+redis==5.0.0
 requests==2.31.0
 six==1.16.0
 tenacity>=8.2.2
