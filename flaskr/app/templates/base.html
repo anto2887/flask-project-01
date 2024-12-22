@@ -14,8 +14,20 @@
                 {% if current_user.is_authenticated %}
                     <span>{{ current_user.username }}</span>
                     <a href="{{ url_for('auth.logout') }}">Log Out</a>
-                    <a href="{{ url_for('group.create_group') }}">Create Group</a>
-                    <a href="{{ url_for('group.manage_groups') }}">Manage Groups</a>
+                    <a href="{{ url_for('group.create') }}" class="nav-btn">Create Group</a>
+                    <a href="{{ url_for('group.join') }}" class="nav-btn">Join Group</a>
+                    {% if user_admin_groups %}
+                        <div class="dropdown">
+                            <button class="dropdown-btn">Manage Groups</button>
+                            <div class="dropdown-content">
+                                {% for group in user_admin_groups %}
+                                    <a href="{{ url_for('group.manage', group_id=group.id) }}">
+                                        {{ group.name }}
+                                    </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
                 {% else %}
                     <a href="{{ url_for('auth.register') }}">Register</a>
                     <a href="{{ url_for('auth.login') }}">Log In</a>
@@ -53,13 +65,35 @@
                 </div>
             </div>
 
+            <!-- Group Selection -->
+            <div class="group-selection card">
+                <h2>Select Group</h2>
+                <select id="activeGroupSelect" class="w-full p-2 border rounded">
+                    {% for group in user_groups %}
+                        <option value="{{ group.id }}" 
+                                data-league="{{ group.league }}"
+                                {% if group.id == active_group.id %}selected{% endif %}>
+                            {{ group.name }} ({{ group.league }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <!-- Prediction Input Section -->
             <div class="predictions card">
                 <h2>Make Your Predictions</h2>
                 <div id="prediction-inputs" class="matches-grid">
                     {% for match in upcoming_matches %}
                         <div class="match-card" data-fixture-id="{{ match.fixture_id }}">
-                            <div class="match-info">Kickoff: {{ match.date.strftime('%Y-%m-%d %H:%M') }}</div>
+                            <div class="match-info">
+                                <span class="kickoff">Kickoff: {{ match.date.strftime('%Y-%m-%d %H:%M') }}</span>
+                                {% if prediction_deadlines[match.fixture_id] %}
+                                    <span class="deadline">Predictions close in: 
+                                        <span class="countdown" data-deadline="{{ prediction_deadlines[match.fixture_id] }}">
+                                        </span>
+                                    </span>
+                                {% endif %}
+                            </div>
                             <div class="match-teams">
                                 <div class="team home-team">
                                     <img src="{{ match.home_team_logo }}" alt="{{ match.home_team }} logo" class="team-logo">
@@ -68,7 +102,8 @@
                                            min="0" 
                                            class="score-input" 
                                            name="home_score" 
-                                           {% if match.status != 'NOT_STARTED' %}disabled{% endif %}>
+                                           {% if match.status != 'NOT_STARTED' %}disabled{% endif %}
+                                           value="{{ user_predictions[match.fixture_id].score1 if match.fixture_id in user_predictions }}">
                                 </div>
                                 <div class="vs">VS</div>
                                 <div class="team away-team">
@@ -76,16 +111,21 @@
                                            min="0" 
                                            class="score-input" 
                                            name="away_score"
-                                           {% if match.status != 'NOT_STARTED' %}disabled{% endif %}>
+                                           {% if match.status != 'NOT_STARTED' %}disabled{% endif %}
+                                           value="{{ user_predictions[match.fixture_id].score2 if match.fixture_id in user_predictions }}">
                                     <span class="team-name">{{ match.away_team }}</span>
                                     <img src="{{ match.away_team_logo }}" alt="{{ match.away_team }} logo" class="team-logo">
                                 </div>
                             </div>
                             <div class="prediction-actions">
-                                <button class="btn submit-prediction" data-fixture-id="{{ match.fixture_id }}">
-                                    Submit
+                                <button class="btn submit-prediction" 
+                                        data-fixture-id="{{ match.fixture_id }}"
+                                        {% if match.status != 'NOT_STARTED' %}disabled{% endif %}>
+                                    {% if match.fixture_id in user_predictions %}Update{% else %}Submit{% endif %}
                                 </button>
-                                <button class="btn reset-prediction" data-fixture-id="{{ match.fixture_id }}">
+                                <button class="btn reset-prediction" 
+                                        data-fixture-id="{{ match.fixture_id }}"
+                                        {% if match.status != 'NOT_STARTED' %}disabled{% endif %}>
                                     Reset
                                 </button>
                             </div>
@@ -97,16 +137,10 @@
             </div>
 
             <!-- User Results Section -->
-            <div class="top-section card">
+            <div class="results-section card">
                 <div class="user-results">
                     <h2>User Results</h2>
                     <div class="filters">
-                        <select id="groupSelect">
-                            <option value="">Select Group</option>
-                            {% for group in user_groups %}
-                                <option value="{{ group.id }}">{{ group.name }}</option>
-                            {% endfor %}
-                        </select>
                         <select id="seasonSelect">
                             <option value="">Select Season</option>
                             {% for season in seasons %}
@@ -122,7 +156,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for user in users %}
+                            {% for user in group_members %}
                                 <tr>
                                     <td>{{ user.username }}</td>
                                     <td>{{ user_points.get(user.id, 0) }}</td>
@@ -138,7 +172,15 @@
                 <h2>Top Performers This Week</h2>
                 <ol id="topPerformersList">
                     {% for performer in top_performers %}
-                        <li>{{ performer.username }} - <span class="points">{{ performer.points }} points</span></li>
+                        <li>
+                            {{ performer.username }} - 
+                            <span class="points">{{ performer.points }} points</span>
+                            {% if performer.perfect_predictions %}
+                                <span class="perfect-badge">
+                                    {{ performer.perfect_predictions }} perfect
+                                </span>
+                            {% endif %}
+                        </li>
                     {% endfor %}
                 </ol>
             </div>
