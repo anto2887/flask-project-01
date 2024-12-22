@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Group - PrdiktIt</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="bg-[#D4F1F4]">
+    <div class="container mx-auto px-4 py-8">
+        <div class="card max-w-md mx-auto">
+            <h1 class="text-2xl font-bold text-[#05445E] mb-6">Join a Group</h1>
+
+            <div class="mb-8">
+                <div id="qrScanner" class="hidden">
+                    <div id="reader"></div>
+                    <button id="stopScanner" 
+                            class="mt-4 text-[#189AB4] hover:text-[#05445E]">
+                        Stop Scanner
+                    </button>
+                </div>
+
+                <button id="startScanner" 
+                        class="w-full bg-[#189AB4] text-white px-6 py-3 rounded hover:bg-[#05445E] mb-4">
+                    Scan QR Code
+                </button>
+
+                <div class="text-center text-[#05445E] mb-4">- OR -</div>
+
+                <form id="joinForm" method="POST" class="space-y-6">
+                    <div class="form-group">
+                        <label for="invite_code" 
+                               class="block text-[#05445E] font-medium mb-2">
+                            Enter Invite Code
+                        </label>
+                        <input type="text" 
+                               id="invite_code" 
+                               name="invite_code" 
+                               class="w-full p-3 border rounded text-center uppercase tracking-wider"
+                               placeholder="XXXX-0000"
+                               pattern="[A-Z]{4}-[0-9]{4}"
+                               required>
+                        <p class="text-sm text-gray-500 mt-1">
+                            Format: XXXX-0000 (Letters-Numbers)
+                        </p>
+                    </div>
+
+                    <button type="submit" 
+                            class="w-full bg-[#189AB4] text-white px-6 py-3 rounded hover:bg-[#05445E]">
+                        Join Group
+                    </button>
+                </form>
+            </div>
+
+            <div class="text-center">
+                <a href="{{ url_for('index') }}" 
+                   class="text-[#189AB4] hover:text-[#05445E]">
+                    Back to Home
+                </a>
+            </div>
+        </div>
+
+        {% if error %}
+        <div class="mt-4 p-4 bg-red-100 text-red-700 rounded">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        {% if success %}
+        <div class="mt-4 p-4 bg-green-100 text-green-700 rounded">
+            {{ success }}
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="{{ url_for('static', filename='js/group-join.js') }}"></script>
+</body>
+</html>

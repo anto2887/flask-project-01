@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group Management - PrdiktIt</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="bg-[#D4F1F4]">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Group Info Card -->
+        <div class="card mb-8">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="text-2xl font-bold text-[#05445E]">{{ group.name }}</h1>
+                    <p class="text-[#189AB4]">{{ group.league }}</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm text-gray-600">Created: {{ group.created.strftime('%Y-%m-%d') }}</p>
+                    <p class="text-sm text-gray-600">Members: {{ member_count }}</p>
+                </div>
+            </div>
+
+            <!-- Invite Code Section -->
+            <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="font-semibold text-[#05445E]">Invite Code</h3>
+                        <p class="text-xl font-mono">{{ group.invite_code }}</p>
+                    </div>
+                    <div class="flex gap-4">
+                        <button id="showQRCode" class="btn">Show QR</button>
+                        <button id="regenerateCode" class="btn">Regenerate</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Member Management Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Active Members -->
+            <div class="card">
+                <h2 class="text-xl font-bold text-[#05445E] mb-4">Members</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr>
+                                <th class="text-left p-2">Username</th>
+                                <th class="text-left p-2">Role</th>
+                                <th class="text-left p-2">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for member in members %}
+                            <tr class="border-t">
+                                <td class="p-2">
+                                    {{ member.username }}
+                                    {% if member.last_active %}
+                                        <span class="text-xs text-gray-500">
+                                            Last active: {{ member.last_active.strftime('%Y-%m-%d') }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="p-2">
+                                    <span class="px-2 py-1 rounded text-sm
+                                        {% if member.role == 'ADMIN' %}bg-red-100 text-red-800
+                                        {% elif member.role == 'MODERATOR' %}bg-blue-100 text-blue-800
+                                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                        {{ member.role }}
+                                    </span>
+                                </td>
+                                <td class="p-2">
+                                    <div class="flex gap-2">
+                                        {% if member.role != 'ADMIN' %}
+                                        <button class="text-sm text-blue-600 hover:text-blue-800"
+                                                onclick="promoteMember('{{ member.user_id }}')">
+                                            Promote
+                                        </button>
+                                        <button class="text-sm text-red-600 hover:text-red-800"
+                                                onclick="removeMember('{{ member.user_id }}')">
+                                            Remove
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pending Requests -->
+            <div class="card">
+                <h2 class="text-xl font-bold text-[#05445E] mb-4">Pending Requests</h2>
+                {% if pending_requests %}
+                <div class="space-y-4">
+                    {% for request in pending_requests %}
+                    <div class="flex justify-between items-center p-2 border-b">
+                        <div>
+                            <p class="font-medium">{{ request.username }}</p>
+                            <p class="text-sm text-gray-500">
+                                Requested: {{ request.requested_at.strftime('%Y-%m-%d') }}
+                            </p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="btn-success"
+                                    onclick="approveRequest('{{ request.id }}')">
+                                Approve
+                            </button>
+                            <button class="btn-danger"
+                                    onclick="rejectRequest('{{ request.id }}')">
+                                Reject
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-gray-500">No pending requests</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Group Analytics Section -->
+        <div class="card mt-8">
+            <h2 class="text-xl font-bold text-[#05445E] mb-4">Group Analytics</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <h3 class="font-semibold text-[#05445E] mb-2">Participation Rate</h3>
+                    <p class="text-2xl font-bold">{{ analytics.participation_rate }}%</p>
+                </div>
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <h3 class="font-semibold text-[#05445E] mb-2">Average Points</h3>
+                    <p class="text-2xl font-bold">{{ analytics.average_points }}</p>
+                </div>
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <h3 class="font-semibold text-[#05445E] mb-2">Perfect Predictions</h3>
+                    <p class="text-2xl font-bold">{{ analytics.perfect_predictions }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div id="qrModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 class="text-xl font-bold text-[#05445E] mb-4">Group Invite QR Code</h2>
+            <div id="qrCode" class="text-center"></div>
+            <p class="mt-4 text-center text-gray-600">Scan to join group</p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/qrcode.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/group-management.js') }}"></script>
+</body>
+</html>

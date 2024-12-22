@@ -17,6 +17,20 @@ class PredictionStatus(Enum):
     LOCKED = "LOCKED"         # Match started, can't edit
     PROCESSED = "PROCESSED"   # Points calculated
 
+class GroupPrivacyType(Enum):
+    PRIVATE = "PRIVATE"          # Invite code only
+    SEMI_PRIVATE = "SEMI_PRIVATE"  # Invite code + admin approval
+
+class MemberRole(Enum):
+    ADMIN = "ADMIN"
+    MODERATOR = "MODERATOR"
+    MEMBER = "MEMBER"
+
+class MembershipStatus(Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
 user_groups = db.Table('user_groups',
     db.Column('user_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
     db.Column('group_id', db.Integer, db.ForeignKey('groups.id'), primary_key=True)
@@ -33,6 +47,16 @@ class Users(db.Model, UserMixin):
     predictions = db.relationship('UserPredictions', backref='author', lazy=True)
     groups = db.relationship('Group', secondary=user_groups, back_populates='users')
     created_groups = db.relationship('Group', backref='creator', lazy=True)
+    member_roles = db.relationship('GroupMember', backref='user', lazy=True)
+    pending_memberships = db.relationship('PendingMembership', 
+                                        foreign_keys='PendingMembership.user_id',
+                                        backref='user', 
+                                        lazy=True)
+    processed_memberships = db.relationship('PendingMembership',
+                                          foreign_keys='PendingMembership.processed_by',
+                                          backref='processor',
+                                          lazy=True)
+    audit_logs = db.relationship('GroupAuditLog', backref='user', lazy=True)
 
 class Group(db.Model):
     __tablename__ = 'groups'
@@ -40,9 +64,19 @@ class Group(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
     league = db.Column(db.String, nullable=False)
+    invite_code = db.Column(db.String(8), unique=True, nullable=False)
+    privacy_type = db.Column(db.Enum(GroupPrivacyType), default=GroupPrivacyType.PRIVATE)
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    users = db.relationship('Users', secondary=user_groups, back_populates='groups')
     created = db.Column(db.DateTime, default=datetime.utcnow)
+    description = db.Column(db.Text)
+    
+    users = db.relationship('Users', secondary=user_groups, back_populates='groups')
+    tracked_teams = db.relationship('TeamTracker', backref='group', lazy=True)
+    member_roles = db.relationship('GroupMember', backref='group', lazy=True)
+    analytics = db.relationship('GroupAnalytics', backref='group', lazy=True)
+    pending_members = db.relationship('PendingMembership', backref='group', lazy=True)
+    audit_logs = db.relationship('GroupAuditLog', backref='group', lazy=True)
+    posts = db.relationship('Post', backref='group', lazy=True)
 
 class Post(db.Model):
     __tablename__ = 'post'
@@ -55,8 +89,6 @@ class Post(db.Model):
     week = db.Column(db.Integer, nullable=False)
     season = db.Column(db.String, nullable=False)
     processed = db.Column(db.Boolean, default=False, nullable=False)
-    
-    group = db.relationship('Group', backref='posts')
 
 class UserResults(db.Model):
     __tablename__ = 'user_results'
@@ -78,8 +110,6 @@ class UserPredictions(db.Model):
     score2 = db.Column(db.Integer, nullable=False)
     points = db.Column(db.Integer, nullable=False, default=0)
     created = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    
-    # New fields
     prediction_status = db.Column(db.Enum(PredictionStatus), 
                                 nullable=False, 
                                 default=PredictionStatus.EDITABLE)
@@ -88,8 +118,8 @@ class UserPredictions(db.Model):
     
     __table_args__ = (
         db.UniqueConstraint('author_id', 'fixture_id', name='_user_fixture_uc'),
-        db.Index('idx_predictions_status', 'prediction_status'),  # Index for status queries
-        db.Index('idx_predictions_fixture', 'fixture_id')         # Index for fixture queries
+        db.Index('idx_predictions_status', 'prediction_status'),
+        db.Index('idx_predictions_fixture', 'fixture_id')
     )
 
 class Fixture(db.Model):
@@ -113,7 +143,6 @@ class Fixture(db.Model):
     referee = db.Column(db.String)
     league_id = db.Column(db.Integer)
     
-    # Relationships
     predictions = db.relationship('UserPredictions', 
                                 backref='fixture', 
                                 lazy=True,
@@ -122,6 +151,72 @@ class Fixture(db.Model):
     __table_args__ = (
         db.Index('idx_fixture_date_status', 'date', 'status'),
         db.Index('idx_fixture_league_season', 'league', 'season')
+    )
+
+class TeamTracker(db.Model):
+    __tablename__ = 'team_tracker'
+
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=False)
+    team_id = db.Column(db.Integer, nullable=False)
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('group_id', 'team_id', name='_group_team_uc'),
+    )
+
+class GroupMember(db.Model):
+    __tablename__ = 'group_members'
+
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    role = db.Column(db.Enum(MemberRole), default=MemberRole.MEMBER)
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_active = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('group_id', 'user_id', name='_group_member_uc'),
+    )
+
+class PendingMembership(db.Model):
+    __tablename__ = 'pending_memberships'
+
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    status = db.Column(db.Enum(MembershipStatus), default=MembershipStatus.PENDING)
+    requested_at = db.Column(db.DateTime, default=datetime.utcnow)
+    processed_at = db.Column(db.DateTime)
+    processed_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+class GroupAnalytics(db.Model):
+    __tablename__ = 'group_analytics'
+
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=False)
+    analysis_type = db.Column(db.String, nullable=False)  # 'weekly', 'monthly', 'seasonal'
+    period = db.Column(db.String, nullable=False)  # '2023-W45', '2023-10', '2023-2024'
+    data = db.Column(db.JSON)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_analytics_group_type', 'group_id', 'analysis_type'),
+        db.UniqueConstraint('group_id', 'analysis_type', 'period', name='_analytics_period_uc')
+    )
+
+class GroupAuditLog(db.Model):
+    __tablename__ = 'group_audit_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    action = db.Column(db.String, nullable=False)
+    details = db.Column(db.JSON)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.Index('idx_audit_group_date', 'group_id', 'created_at'),
     )
 
 class InitializationStatus(db.Model):
