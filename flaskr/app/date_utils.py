@@ -3,12 +3,12 @@ from flask import current_app
 from app.services.football_api import FootballAPIService
 from app.services.match_processing import MatchProcessingService
 from app.models import db
-from app.api_client import get_secret
 
 def daily_update():
     """Perform daily update of fixtures and results"""
     try:
-        # Initialize services
+        # Import inside the function to avoid circular import
+        from app.api_client import get_secret
         api_key = get_secret()  # Your existing get_secret function
         football_api = FootballAPIService(api_key)
         match_processor = MatchProcessingService(football_api)

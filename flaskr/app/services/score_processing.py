@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import List, Dict
 from flask import current_app
 from app.models import Fixture, UserPredictions, UserResults, db
-from app.compare import calculate_points
 
 class ScoreProcessingService:
     def __init__(self, football_api_service):
@@ -47,6 +46,9 @@ class ScoreProcessingService:
     def process_final_score(self, fixture: Fixture, match_data: dict):
         """Process final scores and update user points"""
         try:
+            # Import inside the function to avoid circular dependency
+            from app.compare import calculate_points
+
             predictions = UserPredictions.query.filter_by(
                 fixture_id=fixture.fixture_id,
                 processed=False
