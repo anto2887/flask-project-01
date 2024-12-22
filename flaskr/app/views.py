@@ -3,7 +3,7 @@ from flask_login import current_user, login_required
 from sqlalchemy.exc import IntegrityError
 from app.models import Users, Group, db
 from app.forms import CreateGroupForm
-from app.blog import user_points
+from app.utils import user_points
 
 group_bp = Blueprint('group', __name__, url_prefix='/group')
 
