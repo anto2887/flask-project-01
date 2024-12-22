@@ -115,10 +115,12 @@ def create_app(test_config=None):
     try:
         from app import auth, blog, views
         from app.group_routes import group_bp
+        from app.error_handlers import register_error_handlers
         app.register_blueprint(auth.bp)
         app.register_blueprint(blog.bp)
         app.register_blueprint(views.group_bp)
         app.register_blueprint(group_bp)
+        register_error_handlers(app)
 
         blog.init_app(app)
     except ImportError as e:
