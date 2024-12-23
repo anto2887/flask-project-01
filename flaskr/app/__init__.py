@@ -113,12 +113,11 @@ def create_app(test_config=None):
             return 'Service Unavailable', 503
 
     try:
-        from app import auth, blog, views
+        from app import auth, blog
         from app.group_routes import group_bp
         from app.error_handlers import register_error_handlers
         app.register_blueprint(auth.bp)
         app.register_blueprint(blog.bp)
-        app.register_blueprint(views.group_bp)
         app.register_blueprint(group_bp)
         register_error_handlers(app)
 
