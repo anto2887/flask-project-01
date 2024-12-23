@@ -140,6 +140,7 @@ class Fixture(db.Model):
     away_score = db.Column(db.Integer, default=0)
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     venue = db.Column(db.String)
+    venue_city = db.Column(db.String(255), nullable=True)
     referee = db.Column(db.String)
     league_id = db.Column(db.Integer)
     
