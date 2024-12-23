@@ -141,6 +141,9 @@ class Fixture(db.Model):
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     venue = db.Column(db.String)
     venue_city = db.Column(db.String(255), nullable=True)
+    competition_id = db.Column(db.Integer, nullable=False)
+    match_timestamp = db.Column(db.DateTime, nullable=False)
+    last_checked = db.Column(db.DateTime, nullable=True)
     referee = db.Column(db.String)
     league_id = db.Column(db.Integer)
     
