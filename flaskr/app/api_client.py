@@ -60,14 +60,15 @@ def populate_initial_data():
             "UEFA Champions League": 2
         }
         
+        season = 2024  # Hardcoded season
+
         for league_name, league_id in leagues.items():
-            current_app.logger.info(f"Processing league: {league_name}")
+            current_app.logger.info(f"Processing league: {league_name} for season {season}")
             
-            # Get current season fixtures
-            fixtures = football_api.get_fixtures_by_date(league_id=league_id, date=datetime.now().strftime('%Y-%m-%d'))
+            fixtures = football_api.get_fixtures_by_season(league_id=league_id, season=season)
             
             if not fixtures:
-                current_app.logger.info(f"No fixtures found for {league_name}")
+                current_app.logger.info(f"No fixtures found for {league_name} in season {season}")
                 continue
             
             for fixture_data in fixtures:
@@ -85,7 +86,7 @@ def populate_initial_data():
                             away_team_logo=fixture_data['teams']['away']['logo'],
                             date=datetime.strptime(fixture_data['fixture']['date'], '%Y-%m-%dT%H:%M:%S%z'),
                             league=league_name,
-                            season=str(fixture_data['league']['season']),
+                            season=str(season),
                             round=fixture_data['league']['round'],
                             status=fixture_data['fixture']['status']['long'],
                             home_score=fixture_data['goals']['home'] if fixture_data['goals']['home'] is not None else 0,

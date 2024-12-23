@@ -51,6 +51,28 @@ class FootballAPIService:
             current_app.logger.error(f"Error fetching fixtures: {str(e)}")
             raise
 
+    def get_fixtures_by_season(self, league_id: int, season: int) -> List[Dict]:
+        """Get fixtures for a specific league and season"""
+        try:
+            response = self.session.get(
+                f"{self.base_url}/fixtures",
+                params={
+                    'league': league_id,
+                    'season': season
+                }
+            )
+            response.raise_for_status()
+            
+            # Log remaining API calls
+            remaining = response.headers.get('x-ratelimit-remaining')
+            if remaining and int(remaining) < 10:
+                current_app.logger.warning(f"API calls remaining: {remaining}")
+            
+            return response.json()['response']
+        except Exception as e:
+            current_app.logger.error(f"Error fetching fixtures by season: {str(e)}")
+            raise
+
     def get_fixture_status(self, fixture_id: int) -> Optional[Dict]:
         """Get current status of a specific fixture"""
         try:

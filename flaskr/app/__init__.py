@@ -106,7 +106,8 @@ def create_app(test_config=None):
     def health():
         try:
             # Check database connection
-            db.session.execute('SELECT 1')
+            from sqlalchemy.sql import text
+            db.session.execute(text('SELECT 1'))
             return 'OK', 200
         except Exception as e:
             app.logger.error(f"Health check failed: {str(e)}")
