@@ -120,8 +120,6 @@ def create_app(test_config=None):
         app.register_blueprint(blog.bp)
         app.register_blueprint(group_bp)
         register_error_handlers(app)
-
-        blog.init_app(app)
     except ImportError as e:
         app.logger.error(f"Error importing modules: {str(e)}")
         raise
