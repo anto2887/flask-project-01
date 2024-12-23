@@ -73,6 +73,13 @@ def populate_initial_data():
             
             for fixture_data in fixtures:
                 try:
+                    # Handle date conversion based on type
+                    fixture_date = fixture_data['fixture']['date']
+                    if isinstance(fixture_date, int):  # Handle Unix timestamp
+                        fixture_datetime = datetime.fromtimestamp(fixture_date)
+                    else:  # Handle string
+                        fixture_datetime = datetime.strptime(fixture_date, '%Y-%m-%dT%H:%M:%S%z')
+                    
                     existing_fixture = Fixture.query.filter_by(
                         fixture_id=fixture_data['fixture']['id']
                     ).first()
@@ -84,7 +91,7 @@ def populate_initial_data():
                             away_team=fixture_data['teams']['away']['name'],
                             home_team_logo=fixture_data['teams']['home']['logo'],
                             away_team_logo=fixture_data['teams']['away']['logo'],
-                            date=datetime.strptime(fixture_data['fixture']['date'], '%Y-%m-%dT%H:%M:%S%z'),
+                            date=fixture_datetime,
                             league=league_name,
                             season=str(season),
                             round=fixture_data['league']['round'],
@@ -93,7 +100,7 @@ def populate_initial_data():
                             away_score=fixture_data['goals']['away'] if fixture_data['goals']['away'] is not None else 0,
                             venue_city=fixture_data['fixture']['venue']['city'],
                             competition_id=league_id,
-                            match_timestamp=datetime.strptime(fixture_data['fixture']['timestamp'], '%Y-%m-%dT%H:%M:%S%z'),
+                            match_timestamp=fixture_datetime,
                             last_checked=datetime.utcnow()
                         )
                         db.session.add(new_fixture)
@@ -111,6 +118,7 @@ def populate_initial_data():
         current_app.logger.error(f"Error in populate_initial_data: {str(e)}")
         raise
 
+    
 def get_fixtures(league_id: int, season: str, round_name: str = None):
     """Get fixtures for viewing"""
     try:
