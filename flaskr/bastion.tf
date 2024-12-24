@@ -4,7 +4,8 @@ resource "aws_instance" "bastion" {
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.flaskr_public_subnet[0].id  # Place in first public subnet
 
-  vpc_security_group_ids = [aws_security_group.bastion_sg.id]
+  # Reference the bastion security group declared in sg.tf
+  vpc_security_group_ids = [aws_security_group.flaskr_bastion_sg.id]
   key_name              = "nginxubuntu"
 
   tags = {
@@ -23,6 +24,6 @@ resource "aws_instance" "bastion" {
 
 # Output the bastion's public IP for easy access
 output "bastion_public_ip" {
-  value = aws_instance.bastion.public_ip
+  value       = aws_instance.bastion.public_ip
   description = "Public IP address of the bastion host"
 }
