@@ -2,6 +2,8 @@ from flask import Blueprint, jsonify, request, current_app
 from app.db import get_db
 import requests
 from typing import Optional, List, Dict, Any
+import time
+from datetime import datetime, timedelta
 
 class FootballAPIService:
     def __init__(self, api_key: str):
@@ -11,24 +13,71 @@ class FootballAPIService:
             'x-rapidapi-key': self.api_key,
             'x-rapidapi-host': 'api-football-v1.p.rapidapi.com'
         }
+        # Pro Plan rate limiting
+        self.requests_per_minute = 300
+        self.minute_requests = 0
+        self.last_request_time = datetime.now()
+        self.last_reset_time = datetime.now()
 
-    def _make_request(self, endpoint: str, params: Dict[str, Any]) -> Optional[List[Dict]]:
-        """Make request to football API with error handling"""
-        try:
-            url = f"{self.base_url}/{endpoint}"
-            response = requests.get(url, headers=self.headers, params=params)
-            response.raise_for_status()
-            
-            data = response.json()
-            if data.get('errors'):
-                current_app.logger.error(f"API Error: {data['errors']}")
-                return None
+    def _check_rate_limits(self):
+        """Check and handle rate limits"""
+        current_time = datetime.now()
+
+        # Reset minute counter if it's been more than a minute
+        if (current_time - self.last_reset_time) >= timedelta(minutes=1):
+            self.minute_requests = 0
+            self.last_reset_time = current_time
+            current_app.logger.debug("Rate limit counter reset")
+
+        # Check if we're approaching the limit (leave some buffer)
+        if self.minute_requests >= (self.requests_per_minute - 10):
+            # Calculate time until next reset
+            seconds_until_reset = 60 - (current_time - self.last_reset_time).seconds
+            if seconds_until_reset > 0:
+                current_app.logger.info(f"Approaching rate limit. Waiting {seconds_until_reset} seconds...")
+                time.sleep(seconds_until_reset)
+                self.minute_requests = 0
+                self.last_reset_time = datetime.now()
+
+    def _make_request(self, endpoint: str, params: Dict[str, Any], max_retries: int = 3) -> Optional[List[Dict]]:
+        """Make request to football API with error handling and rate limiting"""
+        retries = 0
+        while retries < max_retries:
+            try:
+                self._check_rate_limits()
                 
-            return data.get('response', [])
+                url = f"{self.base_url}/{endpoint}"
+                current_app.logger.debug(f"Making API request to: {url} with params: {params}")
+                
+                response = requests.get(url, headers=self.headers, params=params)
+                
+                # Update rate limit counter
+                self.minute_requests += 1
+                self.last_request_time = datetime.now()
+                
+                response.raise_for_status()
+                
+                data = response.json()
+                if data.get('errors'):
+                    current_app.logger.error(f"API Error: {data['errors']}")
+                    return None
+                    
+                return data.get('response', [])
+                
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 429:  # Too Many Requests
+                    retries += 1
+                    wait_time = min(2 ** retries, 60)  # Exponential backoff, max 60 seconds
+                    current_app.logger.warning(f"Rate limit exceeded. Retrying in {wait_time} seconds... (Attempt {retries}/{max_retries})")
+                    time.sleep(wait_time)
+                    continue
+                current_app.logger.error(f"HTTP Error: {str(e)}")
+                break
+            except requests.exceptions.RequestException as e:
+                current_app.logger.error(f"API Request failed: {str(e)}")
+                break
             
-        except requests.exceptions.RequestException as e:
-            current_app.logger.error(f"API Request failed: {str(e)}")
-            return None
+        return None
 
     def get_fixtures_by_season(self, league_id: int, season: int) -> Optional[List[Dict]]:
         """Get fixtures for a specific league and season"""
