@@ -37,30 +37,37 @@ def get_secret():
         return None
 
 def initialize_services():
-    """Initialize API services"""
-    api_key = get_secret()
-    if not api_key:
-        raise ValueError("Failed to retrieve API key")
+    """Initialize API services with proper error handling"""
+    try:
+        api_key = get_secret()
+        if not api_key:
+            current_app.logger.error("Failed to retrieve API key")
+            raise ValueError("Failed to retrieve API key")
+            
+        football_api = FootballAPIService(api_key)
+        score_processor = ScoreProcessingService(football_api)
         
-    football_api = FootballAPIService(api_key)
-    score_processor = ScoreProcessingService(football_api)
-    return football_api, score_processor
+        current_app.logger.info("Successfully initialized API services")
+        return football_api, score_processor
+        
+    except Exception as e:
+        current_app.logger.error(f"Error initializing services: {str(e)}")
+        raise
 
 def populate_initial_data():
-    """Populate initial fixture data"""
+    """Populate initial fixture data with enhanced error handling"""
     current_app.logger.info("Starting initial data population")
     
     try:
         football_api, _ = initialize_services()
         
-        # League IDs
         leagues = {
             "Premier League": 39,
             "La Liga": 140,
             "UEFA Champions League": 2
         }
         
-        season = 2024  # Hardcoded season
+        season = 2024
 
         status_mapping = {
             "Not Started": "NOT_STARTED",
@@ -82,14 +89,16 @@ def populate_initial_data():
             
             for fixture_data in fixtures:
                 try:
-                    # Handle date conversion based on type
                     fixture_date = fixture_data['fixture']['date']
-                    if isinstance(fixture_date, int):  # Handle Unix timestamp
+                    if isinstance(fixture_date, int):
                         fixture_datetime = datetime.fromtimestamp(fixture_date)
-                    else:  # Handle string
+                    else:
                         fixture_datetime = datetime.strptime(fixture_date, '%Y-%m-%dT%H:%M:%S%z')
                     
-                    status = status_mapping.get(fixture_data['fixture']['status']['long'], "NOT_STARTED")
+                    status = status_mapping.get(
+                        fixture_data['fixture']['status']['long'],
+                        "NOT_STARTED"
+                    )
                     
                     existing_fixture = Fixture.query.filter_by(
                         fixture_id=fixture_data['fixture']['id']
@@ -116,6 +125,13 @@ def populate_initial_data():
                         )
                         db.session.add(new_fixture)
                         current_app.logger.info(f"Added new fixture: {new_fixture.home_team} vs {new_fixture.away_team}")
+                    else:
+                        # Update existing fixture with new data
+                        existing_fixture.status = status
+                        existing_fixture.home_score = fixture_data['goals']['home'] if fixture_data['goals']['home'] is not None else existing_fixture.home_score
+                        existing_fixture.away_score = fixture_data['goals']['away'] if fixture_data['goals']['away'] is not None else existing_fixture.away_score
+                        existing_fixture.last_checked = datetime.utcnow()
+                        current_app.logger.info(f"Updated existing fixture: {existing_fixture.home_team} vs {existing_fixture.away_team}")
                     
                     db.session.commit()
                 except Exception as e:
@@ -129,10 +145,8 @@ def populate_initial_data():
         current_app.logger.error(f"Error in populate_initial_data: {str(e)}")
         raise
 
-
-    
 def get_fixtures(league_id: int, season: str, round_name: str = None):
-    """Get fixtures for viewing"""
+    """Get fixtures for viewing with enhanced error handling"""
     try:
         football_api, _ = initialize_services()
         
@@ -154,7 +168,14 @@ def get_fixtures(league_id: int, season: str, round_name: str = None):
             'away_team': fixture['teams']['away']['name'],
             'home_team_logo': fixture['teams']['home']['logo'],
             'away_team_logo': fixture['teams']['away']['logo'],
-            'fixture_id': fixture['fixture']['id']
+            'fixture_id': fixture['fixture']['id'],
+            'status': fixture['fixture']['status']['long'],
+            'date': fixture['fixture']['date'],
+            'venue_city': fixture['fixture']['venue']['city'],
+            'goals': {
+                'home': fixture['goals']['home'],
+                'away': fixture['goals']['away']
+            }
         } for fixture in fixtures]
         
     except Exception as e:
@@ -171,18 +192,24 @@ def get_league_id(league_name: str) -> int:
     return league_mapping.get(league_name)
 
 def process_live_scores():
-    """Process live scores for all leagues"""
+    """Process live scores for all leagues with enhanced error handling"""
     try:
         _, score_processor = initialize_services()
         
-        for league_name, league_id in {
+        leagues = {
             "Premier League": 39,
             "La Liga": 140,
             "UEFA Champions League": 2
-        }.items():
+        }
+        
+        for league_name, league_id in leagues.items():
             current_app.logger.info(f"Processing live scores for {league_name}")
-            score_processor.process_live_matches(league_id)
+            try:
+                score_processor.process_live_matches(league_id)
+            except Exception as e:
+                current_app.logger.error(f"Error processing live scores for {league_name}: {str(e)}")
+                continue
             
     except Exception as e:
-        current_app.logger.error(f"Error processing live scores: {str(e)}")
+        current_app.logger.error(f"Error in process_live_scores: {str(e)}")
         raise

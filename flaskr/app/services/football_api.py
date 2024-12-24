@@ -1,19 +1,61 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from app.db import get_db
+import requests
+from typing import Optional, List, Dict, Any
 
 class FootballAPIService:
-    def __init__(self, api_key):
+    def __init__(self, api_key: str):
         self.api_key = api_key
+        self.base_url = "https://api-football-v1.p.rapidapi.com/v3"
+        self.headers = {
+            'x-rapidapi-key': self.api_key,
+            'x-rapidapi-host': 'api-football-v1.p.rapidapi.com'
+        }
 
-    def get_fixtures_by_season(self, league_id, season):
-        # Placeholder for fetching fixtures by season
-        # Replace this with the actual API logic
-        return []
+    def _make_request(self, endpoint: str, params: Dict[str, Any]) -> Optional[List[Dict]]:
+        """Make request to football API with error handling"""
+        try:
+            url = f"{self.base_url}/{endpoint}"
+            response = requests.get(url, headers=self.headers, params=params)
+            response.raise_for_status()
+            
+            data = response.json()
+            if data.get('errors'):
+                current_app.logger.error(f"API Error: {data['errors']}")
+                return None
+                
+            return data.get('response', [])
+            
+        except requests.exceptions.RequestException as e:
+            current_app.logger.error(f"API Request failed: {str(e)}")
+            return None
 
-    def get_fixtures_by_date(self, league_id, season, date=None):
-        # Placeholder for fetching fixtures by date
-        # Replace this with the actual API logic
-        return []
+    def get_fixtures_by_season(self, league_id: int, season: int) -> Optional[List[Dict]]:
+        """Get fixtures for a specific league and season"""
+        params = {
+            'league': league_id,
+            'season': season
+        }
+        return self._make_request('fixtures', params)
+
+    def get_fixtures_by_date(self, league_id: int, season: int, date: Optional[str] = None) -> Optional[List[Dict]]:
+        """Get fixtures for a specific date"""
+        params = {
+            'league': league_id,
+            'season': season
+        }
+        if date:
+            params['date'] = date
+            
+        return self._make_request('fixtures', params)
+
+    def get_live_fixtures(self, league_id: int) -> Optional[List[Dict]]:
+        """Get live fixtures for a specific league"""
+        params = {
+            'league': league_id,
+            'live': 'all'
+        }
+        return self._make_request('fixtures', params)
 
 bp = Blueprint('football_api', __name__, url_prefix='/api')
 
@@ -43,6 +85,7 @@ def get_teams_by_league(league):
         return jsonify(result)
 
     except Exception as e:
+        current_app.logger.error(f"Error retrieving teams: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @bp.route('/fixtures/status', methods=['GET'])
@@ -59,6 +102,7 @@ def get_fixture_status():
         return jsonify(result)
 
     except Exception as e:
+        current_app.logger.error(f"Error retrieving fixture statuses: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @bp.route('/fixtures', methods=['GET'])
@@ -93,6 +137,7 @@ def get_fixtures():
         return jsonify(result)
 
     except Exception as e:
+        current_app.logger.error(f"Error retrieving fixtures: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @bp.route('/fixtures/<league>', methods=['GET'])
@@ -130,6 +175,7 @@ def get_fixtures_by_league(league):
         return jsonify(result)
 
     except Exception as e:
+        current_app.logger.error(f"Error retrieving fixtures: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @bp.route('/leagues', methods=['GET'])
@@ -146,4 +192,5 @@ def get_leagues():
         return jsonify(result)
 
     except Exception as e:
+        current_app.logger.error(f"Error retrieving leagues: {str(e)}")
         return jsonify({"error": str(e)}), 500

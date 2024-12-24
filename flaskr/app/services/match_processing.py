@@ -11,13 +11,23 @@ class MatchProcessingService:
     def process_daily_matches(self, league_id: int):
         """Process all matches for today"""
         try:
-            today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-            matches = self.api.get_fixtures_by_date(league_id, today)
+            matches = self.api.get_fixtures_by_date(
+                league_id=league_id,
+                season=datetime.now().year
+            )
+            
+            if not matches:
+                current_app.logger.info(f"No matches found for league {league_id}")
+                return
             
             for match in matches:
-                fixture = self._get_or_create_fixture(match)
-                if fixture.status != match['fixture']['status']['long']:
-                    self._update_fixture_status(fixture, match)
+                try:
+                    fixture = self._get_or_create_fixture(match)
+                    if fixture.status != match['fixture']['status']['long']:
+                        self._update_fixture_status(fixture, match)
+                except Exception as e:
+                    current_app.logger.error(f"Error processing match {match.get('fixture', {}).get('id')}: {str(e)}")
+                    continue
 
         except Exception as e:
             current_app.logger.error(f"Error processing daily matches: {str(e)}")
@@ -25,42 +35,78 @@ class MatchProcessingService:
 
     def _get_or_create_fixture(self, match_data: dict) -> Fixture:
         """Get existing fixture or create new one"""
-        fixture = Fixture.query.filter_by(
-            fixture_id=match_data['fixture']['id']
-        ).first()
+        try:
+            fixture = Fixture.query.filter_by(
+                fixture_id=match_data['fixture']['id']
+            ).first()
 
-        if not fixture:
-            fixture = Fixture(
-                fixture_id=match_data['fixture']['id'],
-                home_team=match_data['teams']['home']['name'],
-                away_team=match_data['teams']['away']['name'],
-                home_team_logo=match_data['teams']['home']['logo'],
-                away_team_logo=match_data['teams']['away']['logo'],
-                date=datetime.strptime(match_data['fixture']['date'], '%Y-%m-%dT%H:%M:%S%z'),
-                league=match_data['league']['name'],
-                season=str(match_data['league']['season']),
-                round=match_data['league']['round'],
-                status=match_data['fixture']['status']['long'],
-                home_score=match_data['goals']['home'] or 0,
-                away_score=match_data['goals']['away'] or 0,
-                venue_city=match_data['fixture']['venue']['city'],
-                competition_id=match_data['league']['id'],
-                last_checked=datetime.now(timezone.utc)
-            )
-            db.session.add(fixture)
-            db.session.commit()
+            if not fixture:
+                # Handle date parsing based on format
+                match_date = match_data['fixture']['date']
+                if isinstance(match_date, int):
+                    fixture_datetime = datetime.fromtimestamp(match_date)
+                else:
+                    fixture_datetime = datetime.strptime(match_date, '%Y-%m-%dT%H:%M:%S%z')
 
-        return fixture
+                fixture = Fixture(
+                    fixture_id=match_data['fixture']['id'],
+                    home_team=match_data['teams']['home']['name'],
+                    away_team=match_data['teams']['away']['name'],
+                    home_team_logo=match_data['teams']['home']['logo'],
+                    away_team_logo=match_data['teams']['away']['logo'],
+                    date=fixture_datetime,
+                    league=match_data['league']['name'],
+                    season=str(match_data['league']['season']),
+                    round=match_data['league']['round'],
+                    status=match_data['fixture']['status']['long'],
+                    home_score=match_data['goals']['home'] if match_data['goals']['home'] is not None else 0,
+                    away_score=match_data['goals']['away'] if match_data['goals']['away'] is not None else 0,
+                    venue_city=match_data['fixture']['venue']['city'],
+                    competition_id=match_data['league']['id'],
+                    match_timestamp=fixture_datetime,
+                    last_checked=datetime.now(timezone.utc)
+                )
+                db.session.add(fixture)
+                db.session.commit()
+
+            return fixture
+
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error creating/getting fixture: {str(e)}")
+            raise
 
     def _update_fixture_status(self, fixture: Fixture, match_data: dict):
         """Update fixture status and scores"""
         try:
-            fixture.status = match_data['fixture']['status']['long']
-            fixture.home_score = match_data['goals']['home'] or 0
-            fixture.away_score = match_data['goals']['away'] or 0
+            status_mapping = {
+                "1H": "FIRST_HALF",
+                "HT": "HALFTIME",
+                "2H": "SECOND_HALF",
+                "FT": "FINISHED",
+                "PEN": "PENALTY",
+                "AET": "EXTRA_TIME",
+                "LIVE": "LIVE",
+                "PST": "POSTPONED",
+                "CANC": "CANCELLED"
+            }
+
+            api_status = match_data['fixture']['status']['short']
+            new_status = status_mapping.get(api_status, match_data['fixture']['status']['long'])
+            
+            fixture.status = new_status
+            fixture.home_score = match_data['goals']['home'] if match_data['goals']['home'] is not None else fixture.home_score
+            fixture.away_score = match_data['goals']['away'] if match_data['goals']['away'] is not None else fixture.away_score
             fixture.last_checked = datetime.now(timezone.utc)
 
-            if match_data['fixture']['status']['short'] == 'FT':
+            # Add additional scores if available
+            if 'score' in match_data:
+                if 'halftime' in match_data['score']:
+                    fixture.halftime_score = f"{match_data['score']['halftime']['home']}-{match_data['score']['halftime']['away']}"
+                if 'fulltime' in match_data['score']:
+                    fixture.fulltime_score = f"{match_data['score']['fulltime']['home']}-{match_data['score']['fulltime']['away']}"
+
+            if match_data['fixture']['status']['short'] in ['FT', 'AET', 'PEN']:
                 self._process_predictions(fixture)
 
             db.session.commit()
@@ -106,6 +152,7 @@ class MatchProcessingService:
                 user_result.points += points
 
             db.session.commit()
+            current_app.logger.info(f"Processed {len(predictions)} predictions for fixture {fixture.fixture_id}")
 
         except Exception as e:
             db.session.rollback()

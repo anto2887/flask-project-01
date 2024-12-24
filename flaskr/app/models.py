@@ -5,11 +5,23 @@ from enum import Enum
 
 class MatchStatus(Enum):
     NOT_STARTED = "NOT_STARTED"
-    LIVE = "LIVE"
+    FIRST_HALF = "FIRST_HALF"
     HALFTIME = "HALFTIME"
+    SECOND_HALF = "SECOND_HALF"
+    EXTRA_TIME = "EXTRA_TIME"
+    PENALTY = "PENALTY"
     FINISHED = "FINISHED"
+    FINISHED_AET = "FINISHED_AET"  # After Extra Time
+    FINISHED_PEN = "FINISHED_PEN"  # After Penalties
+    BREAK_TIME = "BREAK_TIME"
+    SUSPENDED = "SUSPENDED"
+    INTERRUPTED = "INTERRUPTED"
     POSTPONED = "POSTPONED"
     CANCELLED = "CANCELLED"
+    ABANDONED = "ABANDONED"
+    TECHNICAL_LOSS = "TECHNICAL_LOSS"
+    WALKOVER = "WALKOVER"
+    LIVE = "LIVE"
 
 class PredictionStatus(Enum):
     EDITABLE = "EDITABLE"      # Can be edited
@@ -147,6 +159,12 @@ class Fixture(db.Model):
     referee = db.Column(db.String)
     league_id = db.Column(db.Integer)
     
+    # New fields for additional score tracking
+    halftime_score = db.Column(db.String)  # Format: "1-0"
+    fulltime_score = db.Column(db.String)  # Format: "2-1"
+    extratime_score = db.Column(db.String) # Format: "3-2"
+    penalty_score = db.Column(db.String)   # Format: "5-4"
+    
     predictions = db.relationship('UserPredictions', 
                                 backref='fixture', 
                                 lazy=True,
@@ -154,7 +172,8 @@ class Fixture(db.Model):
     
     __table_args__ = (
         db.Index('idx_fixture_date_status', 'date', 'status'),
-        db.Index('idx_fixture_league_season', 'league', 'season')
+        db.Index('idx_fixture_league_season', 'league', 'season'),
+        db.Index('idx_fixture_competition', 'competition_id')
     )
 
 class TeamTracker(db.Model):

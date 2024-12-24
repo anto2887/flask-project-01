@@ -4,7 +4,8 @@ import requests
 from datetime import datetime, timezone
 
 class TeamService:
-    def __init__(self):
+    def __init__(self, football_api_service):
+        self.api = football_api_service
         self.league_ids = {
             "Premier League": 39,
             "La Liga": 140,
@@ -28,7 +29,8 @@ class TeamService:
                 raise ValueError(f"Unsupported league: {league}")
 
             teams = self._fetch_teams_from_api(league_id)
-            self._update_cache(league, teams)
+            if teams:
+                self._update_cache(league, teams)
             return teams
 
         except Exception as e:
@@ -51,37 +53,54 @@ class TeamService:
     def _fetch_teams_from_api(self, league_id: int) -> List[Dict]:
         """Fetch teams from football API."""
         try:
-            api_key = current_app.config['FOOTBALL_API_KEY']
-            url = "https://api-football-v1.p.rapidapi.com/v3/teams"
-            
-            headers = {
-                'x-rapidapi-host': "api-football-v1.p.rapidapi.com",
-                'x-rapidapi-key': api_key
-            }
-            
             params = {
                 'league': league_id,
                 'season': datetime.now().year
             }
             
-            response = requests.get(url, headers=headers, params=params)
-            response.raise_for_status()
+            response = self.api._make_request('teams', params)
             
-            data = response.json()
+            if not response:
+                return []
+                
             return [{
                 'id': team['team']['id'],
                 'name': team['team']['name'],
-                'logo': team['team']['logo']
-            } for team in data.get('response', [])]
+                'logo': team['team']['logo'],
+                'venue': team['venue']['name'] if 'venue' in team else None,
+                'founded': team['team'].get('founded'),
+                'country': team['team'].get('country')
+            } for team in response]
 
         except Exception as e:
             current_app.logger.error(f"API request failed: {str(e)}")
-            raise
+            return []
 
     def get_team_details(self, team_id: int) -> Optional[Dict]:
         """Get details for a specific team."""
+        # Check cache first
         for teams in self._teams_cache.values():
             for team in teams:
                 if team['id'] == team_id:
                     return team
+                    
+        # If not in cache, fetch from API
+        try:
+            params = {'id': team_id}
+            response = self.api._make_request('teams', params)
+            
+            if response and response[0]:
+                team_data = response[0]
+                return {
+                    'id': team_data['team']['id'],
+                    'name': team_data['team']['name'],
+                    'logo': team_data['team']['logo'],
+                    'venue': team_data['venue']['name'] if 'venue' in team_data else None,
+                    'founded': team_data['team'].get('founded'),
+                    'country': team_data['team'].get('country')
+                }
+                
+        except Exception as e:
+            current_app.logger.error(f"Error fetching team details: {str(e)}")
+            
         return None
