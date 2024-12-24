@@ -117,6 +117,7 @@ def create_app(test_config=None):
         from app import auth, blog
         from app.group_routes import group_bp
         from app.services.football_api import bp as football_api_bp
+        from app.services.football_api import FootballAPIService
         from app.error_handlers import register_error_handlers
         app.register_blueprint(auth.bp)
         app.register_blueprint(blog.bp)
