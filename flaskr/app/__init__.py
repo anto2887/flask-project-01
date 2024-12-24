@@ -116,10 +116,12 @@ def create_app(test_config=None):
     try:
         from app import auth, blog
         from app.group_routes import group_bp
+        from app.services.football_api import football_api_bp
         from app.error_handlers import register_error_handlers
         app.register_blueprint(auth.bp)
         app.register_blueprint(blog.bp)
         app.register_blueprint(group_bp)
+        app.register_blueprint(football_api_bp)
         register_error_handlers(app)
     except ImportError as e:
         app.logger.error(f"Error importing modules: {str(e)}")

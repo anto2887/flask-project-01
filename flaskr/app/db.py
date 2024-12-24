@@ -54,3 +54,19 @@ def init_app(app):
     """Initialize the database with the Flask app."""
     db.init_app(app)
     app.teardown_appcontext(close_db)
+
+def get_teams_from_fixtures():
+    """Extract distinct teams from fixtures."""
+    try:
+        with db.engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT DISTINCT home_team AS team, home_team_logo AS logo FROM fixtures
+                UNION
+                SELECT DISTINCT away_team AS team, away_team_logo AS logo FROM fixtures
+            """))
+            teams = [{"team": row.team, "logo": row.logo} for row in result]
+            current_app.logger.info(f"Extracted {len(teams)} teams from fixtures.")
+            return teams
+    except Exception as e:
+        current_app.logger.error(f"Error extracting teams from fixtures: {str(e)}")
+        raise

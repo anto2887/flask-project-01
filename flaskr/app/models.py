@@ -231,3 +231,13 @@ class InitializationStatus(db.Model):
     status = db.Column(db.String(20), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     details = db.Column(db.Text)
+
+class Team(db.Model):
+    __tablename__ = 'teams'
+
+    id = db.Column(db.Integer, primary_key=True)
+    team_name = db.Column(db.String(255), unique=True, nullable=False)
+    team_logo = db.Column(db.String(512))
+
+    def __repr__(self):
+        return f"<Team {self.team_name}>"
