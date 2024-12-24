@@ -7,11 +7,11 @@ from datetime import datetime, timedelta
 
 class FootballAPIService:
     def __init__(self, api_key: str):
-        self.api_key = api_key
-        self.base_url = "https://api-football-v1.p.rapidapi.com/v3"
+        self.api_key = api_key.strip()  # Remove any whitespace
+        self.base_url = "https://v3.football.api-sports.io"
         self.headers = {
             'x-rapidapi-key': self.api_key,
-            'x-rapidapi-host': 'api-football-v1.p.rapidapi.com'
+            'x-rapidapi-host': 'v3.football.api-sports.io'
         }
         # Pro Plan rate limiting
         self.requests_per_minute = 300
@@ -31,7 +31,6 @@ class FootballAPIService:
 
         # Check if we're approaching the limit (leave some buffer)
         if self.minute_requests >= (self.requests_per_minute - 10):
-            # Calculate time until next reset
             seconds_until_reset = 60 - (current_time - self.last_reset_time).seconds
             if seconds_until_reset > 0:
                 current_app.logger.info(f"Approaching rate limit. Waiting {seconds_until_reset} seconds...")
@@ -58,9 +57,12 @@ class FootballAPIService:
                 response.raise_for_status()
                 
                 data = response.json()
-                if data.get('errors'):
+                if not data.get('response') and data.get('errors'):
                     current_app.logger.error(f"API Error: {data['errors']}")
                     return None
+                
+                # Log successful response
+                current_app.logger.info(f"API request successful. Found {len(data.get('response', []))} items")
                     
                 return data.get('response', [])
                 
