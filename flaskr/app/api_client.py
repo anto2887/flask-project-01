@@ -62,6 +62,15 @@ def populate_initial_data():
         
         season = 2024  # Hardcoded season
 
+        status_mapping = {
+            "Not Started": "NOT_STARTED",
+            "Live": "LIVE",
+            "Halftime": "HALFTIME",
+            "Finished": "FINISHED",
+            "Postponed": "POSTPONED",
+            "Cancelled": "CANCELLED"
+        }
+
         for league_name, league_id in leagues.items():
             current_app.logger.info(f"Processing league: {league_name} for season {season}")
             
@@ -80,6 +89,8 @@ def populate_initial_data():
                     else:  # Handle string
                         fixture_datetime = datetime.strptime(fixture_date, '%Y-%m-%dT%H:%M:%S%z')
                     
+                    status = status_mapping.get(fixture_data['fixture']['status']['long'], "NOT_STARTED")
+                    
                     existing_fixture = Fixture.query.filter_by(
                         fixture_id=fixture_data['fixture']['id']
                     ).first()
@@ -95,7 +106,7 @@ def populate_initial_data():
                             league=league_name,
                             season=str(season),
                             round=fixture_data['league']['round'],
-                            status=fixture_data['fixture']['status']['long'],
+                            status=status,
                             home_score=fixture_data['goals']['home'] if fixture_data['goals']['home'] is not None else 0,
                             away_score=fixture_data['goals']['away'] if fixture_data['goals']['away'] is not None else 0,
                             venue_city=fixture_data['fixture']['venue']['city'],
@@ -117,6 +128,7 @@ def populate_initial_data():
     except Exception as e:
         current_app.logger.error(f"Error in populate_initial_data: {str(e)}")
         raise
+
 
     
 def get_fixtures(league_id: int, season: str, round_name: str = None):
