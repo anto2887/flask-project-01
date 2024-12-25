@@ -113,31 +113,28 @@ bp = Blueprint('football_api', __name__, url_prefix='/api')
 @bp.route('/teams/<league>', methods=['GET'])
 def get_teams_by_league(league):
     """
-    Retrieve distinct teams and their logos from the fixtures table for the given league.
+    Retrieve teams for the given league using TeamService.
     """
-    db = get_db()
     try:
-        query = (
-            "SELECT DISTINCT home_team AS team, home_team_logo AS logo "
-            "FROM fixtures WHERE league = ? "
-            "UNION "
-            "SELECT DISTINCT away_team AS team, away_team_logo AS logo "
-            "FROM fixtures WHERE league = ?"
-        )
-        teams = db.execute(query, (league, league)).fetchall()
+        team_service = current_app.config.get('TEAM_SERVICE')
+        if not team_service:
+            current_app.logger.error("Team service not initialized")
+            return jsonify({"error": "Team service not initialized"}), 500
 
+        teams = team_service.get_league_teams(league)
+        
         if not teams:
+            current_app.logger.warning(f"No teams found for league: {league}")
             return jsonify({"error": "No teams found for the given league."}), 404
 
-        result = [
-            {"team": team["team"], "logo": team["logo"]}
-            for team in teams
-        ]
-        return jsonify(result)
+        return jsonify(teams)
 
+    except ValueError as e:
+        current_app.logger.error(f"Invalid league requested: {str(e)}")
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
         current_app.logger.error(f"Error retrieving teams: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Failed to retrieve teams"}), 500
 
 @bp.route('/fixtures/status', methods=['GET'])
 def get_fixture_status():

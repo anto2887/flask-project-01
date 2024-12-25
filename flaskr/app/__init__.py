@@ -10,6 +10,8 @@ from flask.cli import with_appcontext
 
 from app.db import db
 from app.models import Users, Post, UserResults, Fixture
+from app.api_client import initialize_services
+from app.services.team_service import TeamService
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
@@ -72,6 +74,19 @@ def create_app(test_config=None):
 
     db.init_app(app)
 
+    # Initialize API services
+    try:
+        football_api, _ = initialize_services()
+        team_service = TeamService(football_api)
+        
+        # Store in app config for global access
+        app.config['FOOTBALL_API_SERVICE'] = football_api
+        app.config['TEAM_SERVICE'] = team_service
+        
+        app.logger.info("API services initialized successfully")
+    except Exception as e:
+        app.logger.error(f"Failed to initialize API services: {str(e)}")
+
     login_manager = LoginManager()
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
@@ -114,11 +129,12 @@ def create_app(test_config=None):
             return 'Service Unavailable', 503
 
     try:
+        # Register blueprints
         from app import auth, blog
         from app.group_routes import group_bp
         from app.services.football_api import bp as football_api_bp
-        from app.services.football_api import FootballAPIService
         from app.error_handlers import register_error_handlers
+        
         app.register_blueprint(auth.bp)
         app.register_blueprint(blog.bp)
         app.register_blueprint(group_bp)
