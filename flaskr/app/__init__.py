@@ -10,8 +10,6 @@ from flask.cli import with_appcontext
 
 from app.db import db
 from app.models import Users, Post, UserResults, Fixture
-from app.api_client import initialize_services
-from app.services.team_service import TeamService
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
@@ -40,6 +38,29 @@ def configure_logging(app):
         # Add CloudWatch handler if in AWS environment
         if os.environ.get('AWS_EXECUTION_ENV'):
             app.logger.info('Configuring CloudWatch logging')
+
+def init_services(app):
+    """Initialize API services within application context"""
+    with app.app_context():
+        try:
+            from app.api_client import initialize_services
+            from app.services.team_service import TeamService
+            
+            football_api, _ = initialize_services()
+            if not football_api:
+                app.logger.error("Failed to initialize FootballAPIService")
+                return
+                
+            team_service = TeamService(football_api)
+            
+            # Store in app config for global access
+            app.config['FOOTBALL_API_SERVICE'] = football_api
+            app.config['TEAM_SERVICE'] = team_service
+            
+            app.logger.info("API services initialized successfully")
+        except Exception as e:
+            app.logger.error(f"Failed to initialize API services: {str(e)}")
+            raise
 
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
@@ -74,19 +95,6 @@ def create_app(test_config=None):
 
     db.init_app(app)
 
-    # Initialize API services
-    try:
-        football_api, _ = initialize_services()
-        team_service = TeamService(football_api)
-        
-        # Store in app config for global access
-        app.config['FOOTBALL_API_SERVICE'] = football_api
-        app.config['TEAM_SERVICE'] = team_service
-        
-        app.logger.info("API services initialized successfully")
-    except Exception as e:
-        app.logger.error(f"Failed to initialize API services: {str(e)}")
-
     login_manager = LoginManager()
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
@@ -99,6 +107,9 @@ def create_app(test_config=None):
         if app.config.get('CREATE_TABLES_ON_STARTUP'):
             db.create_all()
             app.logger.info("Database tables created successfully")
+        
+        # Initialize services within app context
+        init_services(app)
 
     @app.route('/populate-data')
     def populate_data():

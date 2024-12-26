@@ -121,46 +121,55 @@ def get_teams_by_league(league):
             current_app.logger.error("Team service not initialized")
             return jsonify({"error": "Team service not initialized"}), 500
 
+        current_app.logger.debug(f"Attempting to get teams for league: {league}")
         teams = team_service.get_league_teams(league)
         
         if not teams:
             current_app.logger.warning(f"No teams found for league: {league}")
             return jsonify({"error": "No teams found for the given league."}), 404
 
+        current_app.logger.info(f"Successfully retrieved {len(teams)} teams for {league}")
         return jsonify(teams)
 
     except ValueError as e:
         current_app.logger.error(f"Invalid league requested: {str(e)}")
         return jsonify({"error": str(e)}), 400
     except Exception as e:
-        current_app.logger.error(f"Error retrieving teams: {str(e)}")
+        current_app.logger.error(f"Error retrieving teams: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to retrieve teams"}), 500
 
 @bp.route('/fixtures/status', methods=['GET'])
 def get_fixture_status():
-    """
-    Retrieve distinct fixture statuses from the database.
-    """
-    db = get_db()
+    """Get all possible fixture statuses"""
     try:
+        db = get_db()
         query = "SELECT DISTINCT status FROM fixtures"
         statuses = db.execute(query).fetchall()
 
+        if not statuses:
+            current_app.logger.warning("No fixture statuses found in database")
+            return jsonify([]), 200
+
         result = [status["status"] for status in statuses]
+        current_app.logger.debug(f"Retrieved {len(result)} fixture statuses")
         return jsonify(result)
 
     except Exception as e:
-        current_app.logger.error(f"Error retrieving fixture statuses: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        current_app.logger.error(f"Error retrieving fixture statuses: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to retrieve fixture statuses"}), 500
 
 @bp.route('/fixtures', methods=['GET'])
 def get_fixtures():
-    """
-    Retrieve all fixtures from the database.
-    """
-    db = get_db()
+    """Get all fixtures"""
     try:
-        query = "SELECT * FROM fixtures"
+        db = get_db()
+        query = """
+            SELECT 
+                fixture_id, home_team, away_team, home_team_logo, away_team_logo,
+                date, league, season, round, status, home_score, away_score,
+                venue, venue_city
+            FROM fixtures
+        """
         fixtures = db.execute(query).fetchall()
 
         result = [
@@ -182,23 +191,31 @@ def get_fixtures():
             }
             for fixture in fixtures
         ]
+
+        current_app.logger.debug(f"Retrieved {len(result)} fixtures")
         return jsonify(result)
 
     except Exception as e:
-        current_app.logger.error(f"Error retrieving fixtures: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        current_app.logger.error(f"Error retrieving fixtures: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to retrieve fixtures"}), 500
 
 @bp.route('/fixtures/<league>', methods=['GET'])
 def get_fixtures_by_league(league):
-    """
-    Retrieve fixtures by league from the database.
-    """
-    db = get_db()
+    """Get fixtures for a specific league"""
     try:
-        query = "SELECT * FROM fixtures WHERE league = ?"
+        db = get_db()
+        query = """
+            SELECT 
+                fixture_id, home_team, away_team, home_team_logo, away_team_logo,
+                date, league, season, round, status, home_score, away_score,
+                venue, venue_city
+            FROM fixtures 
+            WHERE league = ?
+        """
         fixtures = db.execute(query, (league,)).fetchall()
 
         if not fixtures:
+            current_app.logger.warning(f"No fixtures found for league: {league}")
             return jsonify({"error": "No fixtures found for the given league."}), 404
 
         result = [
@@ -220,25 +237,30 @@ def get_fixtures_by_league(league):
             }
             for fixture in fixtures
         ]
+
+        current_app.logger.debug(f"Retrieved {len(result)} fixtures for league: {league}")
         return jsonify(result)
 
     except Exception as e:
-        current_app.logger.error(f"Error retrieving fixtures: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        current_app.logger.error(f"Error retrieving fixtures: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to retrieve fixtures"}), 500
 
 @bp.route('/leagues', methods=['GET'])
 def get_leagues():
-    """
-    Retrieve distinct leagues from the fixtures table.
-    """
-    db = get_db()
+    """Get all available leagues"""
     try:
+        db = get_db()
         query = "SELECT DISTINCT league FROM fixtures"
         leagues = db.execute(query).fetchall()
 
+        if not leagues:
+            current_app.logger.warning("No leagues found in database")
+            return jsonify([]), 200
+
         result = [league["league"] for league in leagues]
+        current_app.logger.debug(f"Retrieved {len(result)} leagues")
         return jsonify(result)
 
     except Exception as e:
-        current_app.logger.error(f"Error retrieving leagues: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        current_app.logger.error(f"Error retrieving leagues: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to retrieve leagues"}), 500
