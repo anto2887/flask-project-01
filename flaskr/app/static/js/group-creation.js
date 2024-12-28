@@ -80,37 +80,52 @@ class GroupCreator {
             return;
         }
 
-        const formData = new FormData(e.target);
-        formData.set('tracked_teams', Array.from(this.selectedTeams));
+        const submitButton = e.target.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        submitButton.textContent = 'Creating...';
 
         try {
-            const response = await fetch('/group/create', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    name: formData.get('name'),
-                    league: formData.get('league'),
-                    tracked_teams: Array.from(this.selectedTeams),
-                    description: formData.get('description'),
-                    privacy_type: formData.get('privacy_type')
-                })
+            const formData = new FormData();
+            const form = e.target;
+            
+            // Append all form fields
+            formData.append('name', form.querySelector('#name').value);
+            formData.append('league', form.querySelector('input[name="league"]:checked').value);
+            formData.append('privacy_type', form.querySelector('select[name="privacy_type"]').value);
+            formData.append('description', form.querySelector('#description').value || '');
+            
+            // Append each selected team ID
+            this.selectedTeams.forEach(teamId => {
+                formData.append('tracked_teams', teamId);
             });
 
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
+            console.log('Submitting form with data:', {
+                name: form.querySelector('#name').value,
+                league: form.querySelector('input[name="league"]:checked').value,
+                privacy_type: form.querySelector('select[name="privacy_type"]').value,
+                description: form.querySelector('#description').value,
+                tracked_teams: Array.from(this.selectedTeams)
+            });
+
+            const response = await fetch('/group/create', {
+                method: 'POST',
+                body: formData
+            });
 
             const data = await response.json();
-            if (data.status === 'success') {
+            console.log('Server response:', data);
+            
+            if (response.ok && data.status === 'success') {
                 window.location.href = data.redirect_url;
             } else {
-                this.showError(data.message || 'Error creating group');
+                throw new Error(data.message || 'Failed to create group');
             }
         } catch (error) {
             console.error('Error creating group:', error);
-            this.showError('Error creating group');
+            this.showError(error.message || 'Failed to create group. Please try again.');
+        } finally {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Create Group';
         }
     }
 
