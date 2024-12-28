@@ -22,14 +22,18 @@ class GroupCreator {
     async loadTeams(league) {
         try {
             const response = await fetch(`/api/teams/${league}`);
-            const data = await response.json();
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const teams = await response.json();
             
-            if (data.status === 'success') {
-                this.renderTeams(data.teams);
+            if (Array.isArray(teams) && teams.length > 0) {
+                this.renderTeams(teams);
             } else {
-                this.showError('Error loading teams');
+                throw new Error('No teams found');
             }
         } catch (error) {
+            console.error('Error loading teams:', error);
             this.showError('Failed to load teams');
         }
     }
@@ -37,9 +41,9 @@ class GroupCreator {
     renderTeams(teams) {
         const container = document.getElementById('teamsContainer');
         container.innerHTML = teams.map(team => `
-            <div class="team-option" data-team-id="${team.id}">
-                <img src="${team.logo}" alt="${team.name} logo">
-                <span>${team.name}</span>
+            <div class="team-option flex items-center p-2 border rounded cursor-pointer hover:bg-gray-50" data-team-id="${team.id}">
+                <img src="${team.logo}" alt="${team.name} logo" class="w-12 h-12 object-contain">
+                <span class="ml-2">${team.name}</span>
                 <input type="checkbox" 
                        name="tracked_teams" 
                        value="${team.id}"
@@ -59,11 +63,11 @@ class GroupCreator {
 
         if (this.selectedTeams.has(teamId)) {
             this.selectedTeams.delete(teamId);
-            element.classList.remove('selected');
+            element.classList.remove('selected', 'bg-blue-50', 'border-blue-500');
             checkbox.checked = false;
         } else {
             this.selectedTeams.add(teamId);
-            element.classList.add('selected');
+            element.classList.add('selected', 'bg-blue-50', 'border-blue-500');
             checkbox.checked = true;
         }
     }
@@ -82,23 +86,37 @@ class GroupCreator {
         try {
             const response = await fetch('/group/create', {
                 method: 'POST',
-                body: formData
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: formData.get('name'),
+                    league: formData.get('league'),
+                    tracked_teams: Array.from(this.selectedTeams),
+                    description: formData.get('description'),
+                    privacy_type: formData.get('privacy_type')
+                })
             });
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
 
             const data = await response.json();
             if (data.status === 'success') {
                 window.location.href = data.redirect_url;
             } else {
-                this.showError(data.message);
+                this.showError(data.message || 'Error creating group');
             }
         } catch (error) {
+            console.error('Error creating group:', error);
             this.showError('Error creating group');
         }
     }
 
     showError(message) {
         const errorDiv = document.createElement('div');
-        errorDiv.className = 'fixed bottom-4 right-4 bg-red-100 text-red-700 p-4 rounded shadow-lg';
+        errorDiv.className = 'fixed bottom-4 right-4 bg-red-100 text-red-700 p-4 rounded shadow-lg z-50';
         errorDiv.textContent = message;
         
         document.body.appendChild(errorDiv);
