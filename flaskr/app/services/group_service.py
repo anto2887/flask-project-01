@@ -18,10 +18,10 @@ class GroupService:
     def generate_invite_code() -> str:
         """Generate a unique 8-character invite code."""
         while True:
-            # Generate code: 4 letters followed by 4 numbers
+            # Generate code: 4 letters and 4 numbers without hyphen
             letters = ''.join(random.choices(string.ascii_uppercase, k=4))
             numbers = ''.join(random.choices(string.digits, k=4))
-            code = f"{letters}-{numbers}"
+            code = f"{letters}{numbers}"  # 8 chars total (4 letters + 4 numbers)
             
             # Check if code already exists
             if not Group.query.filter_by(invite_code=code).first():
