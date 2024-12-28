@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app.services.group_service import GroupService
 from app.services.permission_service import PermissionService
 from app.services.analytics_service import AnalyticsService
-from app.models import Group, GroupMember, MemberRole
+from app.models import Group, GroupMember, MemberRole, GroupPrivacyType
 
 group_bp = Blueprint('group', __name__, url_prefix='/group')
 
@@ -12,12 +12,31 @@ group_bp = Blueprint('group', __name__, url_prefix='/group')
 def create_group():
     if request.method == 'POST':
         try:
+            # Get form data
             name = request.form['name']
             league = request.form['league']
-            privacy_type = request.form['privacy_type']
+            privacy_type_str = request.form['privacy_type']
             description = request.form.get('description')
             tracked_teams = request.form.getlist('tracked_teams')
 
+            # Validate required fields
+            if not name or not league:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Name and league are required'
+                }), 400
+
+            # Convert privacy_type string to enum
+            try:
+                privacy_type = GroupPrivacyType[privacy_type_str]
+            except KeyError:
+                current_app.logger.error(f"Invalid privacy_type value: {privacy_type_str}")
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Invalid privacy type selected'
+                }), 400
+
+            # Create group
             group, error = GroupService.create_group(
                 name=name,
                 league=league,
@@ -28,8 +47,10 @@ def create_group():
             )
 
             if error:
+                current_app.logger.error(f"Error creating group: {error}")
                 return jsonify({'status': 'error', 'message': error}), 400
 
+            current_app.logger.info(f"Group '{name}' created successfully by user {current_user.id}")
             return jsonify({
                 'status': 'success',
                 'redirect_url': url_for('group.manage', group_id=group.id)
@@ -37,7 +58,10 @@ def create_group():
 
         except Exception as e:
             current_app.logger.error(f"Error creating group: {str(e)}")
-            return jsonify({'status': 'error', 'message': 'Failed to create group'}), 500
+            return jsonify({
+                'status': 'error',
+                'message': 'An unexpected error occurred while creating the group'
+            }), 500
 
     return render_template('group/create.html')
 
@@ -49,15 +73,27 @@ def join_group():
             data = request.get_json()
             invite_code = data.get('invite_code')
 
+            if not invite_code:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Invite code is required'
+                }), 400
+
             success, message = GroupService.join_group(invite_code, current_user.id)
 
             if success:
+                current_app.logger.info(f"User {current_user.id} successfully joined group with code {invite_code}")
                 return jsonify({'status': 'success', 'message': message})
+            
+            current_app.logger.warning(f"Failed join attempt for code {invite_code} by user {current_user.id}: {message}")
             return jsonify({'status': 'error', 'message': message}), 400
 
         except Exception as e:
             current_app.logger.error(f"Error joining group: {str(e)}")
-            return jsonify({'status': 'error', 'message': 'Failed to join group'}), 500
+            return jsonify({
+                'status': 'error',
+                'message': 'An unexpected error occurred while joining the group'
+            }), 500
 
     return render_template('group/join.html')
 
@@ -65,7 +101,9 @@ def join_group():
 @login_required
 def manage_group(group_id):
     try:
+        # Check admin permissions
         if not PermissionService.check_group_permission(current_user.id, group_id, MemberRole.ADMIN):
+            current_app.logger.warning(f"Unauthorized access attempt to manage group {group_id} by user {current_user.id}")
             return redirect(url_for('index'))
 
         group = Group.query.get_or_404(group_id)
@@ -87,23 +125,42 @@ def manage_group(group_id):
 @login_required
 def get_league_teams(league):
     try:
-        teams = GroupService.get_league_teams(league)
+        team_service = current_app.config.get('TEAM_SERVICE')
+        if not team_service:
+            current_app.logger.error("Team service not initialized")
+            return jsonify({'status': 'error', 'message': 'Service unavailable'}), 500
+
+        teams = team_service.get_league_teams(league)
+        if not teams:
+            current_app.logger.warning(f"No teams found for league: {league}")
+            return jsonify({'status': 'error', 'message': 'No teams found for the given league'}), 404
+
         return jsonify({'status': 'success', 'teams': teams})
+
     except Exception as e:
         current_app.logger.error(f"Error fetching teams: {str(e)}")
-        return jsonify({'status': 'error', 'message': 'Failed to fetch teams'}), 500
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to fetch teams'
+        }), 500
 
-# Admin actions
 @group_bp.route('/<int:group_id>/members', methods=['POST'])
 @login_required
 def manage_members(group_id):
     try:
+        # Check admin permissions
         if not PermissionService.check_group_permission(current_user.id, group_id, MemberRole.ADMIN):
             return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
 
         data = request.get_json()
         action = data.get('action')
         user_ids = data.get('user_ids', [])
+
+        if not action or not user_ids:
+            return jsonify({
+                'status': 'error',
+                'message': 'Action and user IDs are required'
+            }), 400
 
         success, message, results = GroupService.bulk_member_action(
             group_id=group_id,
@@ -120,18 +177,32 @@ def manage_members(group_id):
 
     except Exception as e:
         current_app.logger.error(f"Error managing members: {str(e)}")
-        return jsonify({'status': 'error', 'message': 'Operation failed'}), 500
+        return jsonify({
+            'status': 'error',
+            'message': 'Operation failed'
+        }), 500
 
 @group_bp.route('/<int:group_id>/regenerate-code', methods=['POST'])
 @login_required
 def regenerate_code(group_id):
     try:
+        # Check admin permissions
         if not PermissionService.check_group_permission(current_user.id, group_id, MemberRole.ADMIN):
             return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
 
         new_code = GroupService.regenerate_invite_code(group_id)
+        if not new_code:
+            return jsonify({
+                'status': 'error',
+                'message': 'Failed to generate new invite code'
+            }), 500
+
+        current_app.logger.info(f"Invite code regenerated for group {group_id} by user {current_user.id}")
         return jsonify({'status': 'success', 'invite_code': new_code})
 
     except Exception as e:
         current_app.logger.error(f"Error regenerating invite code: {str(e)}")
-        return jsonify({'status': 'error', 'message': 'Failed to regenerate code'}), 500
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to regenerate code'
+        }), 500

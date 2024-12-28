@@ -1,6 +1,7 @@
 class GroupCreator {
     constructor() {
         this.selectedTeams = new Set();
+        this.VALID_PRIVACY_TYPES = ['PRIVATE', 'SEMI_PRIVATE'];
         this.initializeLeagueSelector();
         this.initializeForm();
     }
@@ -17,24 +18,74 @@ class GroupCreator {
     initializeForm() {
         const form = document.querySelector('form');
         form.addEventListener('submit', (e) => this.handleSubmit(e));
+
+        // Add validation for privacy type select
+        const privacySelect = form.querySelector('select[name="privacy_type"]');
+        privacySelect.addEventListener('change', (e) => {
+            this.validatePrivacyType(e.target);
+        });
+    }
+
+    validatePrivacyType(select) {
+        const value = select.value;
+        if (!this.VALID_PRIVACY_TYPES.includes(value)) {
+            select.setCustomValidity('Please select a valid privacy type');
+            this.showError('Invalid privacy type selected');
+            return false;
+        }
+        select.setCustomValidity('');
+        return true;
+    }
+
+    validateForm(form) {
+        // Validate required fields
+        const name = form.querySelector('#name').value.trim();
+        if (!name) {
+            this.showError('Group name is required');
+            return false;
+        }
+
+        const league = form.querySelector('input[name="league"]:checked');
+        if (!league) {
+            this.showError('Please select a league');
+            return false;
+        }
+
+        const privacyType = form.querySelector('select[name="privacy_type"]');
+        if (!this.validatePrivacyType(privacyType)) {
+            return false;
+        }
+
+        if (this.selectedTeams.size === 0) {
+            this.showError('Please select at least one team to track');
+            return false;
+        }
+
+        return true;
     }
 
     async loadTeams(league) {
         try {
-            const response = await fetch(`/api/teams/${league}`);
+            const teamsContainer = document.getElementById('teamsContainer');
+            teamsContainer.innerHTML = '<div class="p-4 text-center">Loading teams...</div>';
+
+            const response = await fetch(`/api/teams/${encodeURIComponent(league)}`);
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                throw new Error('Failed to fetch teams');
             }
-            const teams = await response.json();
+
+            const data = await response.json();
             
-            if (Array.isArray(teams) && teams.length > 0) {
-                this.renderTeams(teams);
+            if (data.status === 'success' && Array.isArray(data.teams)) {
+                this.renderTeams(data.teams);
             } else {
-                throw new Error('No teams found');
+                throw new Error(data.message || 'No teams found');
             }
         } catch (error) {
             console.error('Error loading teams:', error);
-            this.showError('Failed to load teams');
+            this.showError(error.message || 'Failed to load teams');
+            document.getElementById('teamsContainer').innerHTML = 
+                '<div class="p-4 text-center text-red-600">Error loading teams. Please try again.</div>';
         }
     }
 
@@ -42,8 +93,8 @@ class GroupCreator {
         const container = document.getElementById('teamsContainer');
         container.innerHTML = teams.map(team => `
             <div class="team-option flex items-center p-2 border rounded cursor-pointer hover:bg-gray-50" data-team-id="${team.id}">
-                <img src="${team.logo}" alt="${team.name} logo" class="w-12 h-12 object-contain">
-                <span class="ml-2">${team.name}</span>
+                <img src="${team.logo || team.team_logo}" alt="${team.name || team.team_name} logo" class="w-12 h-12 object-contain">
+                <span class="ml-2">${team.name || team.team_name}</span>
                 <input type="checkbox" 
                        name="tracked_teams" 
                        value="${team.id}"
@@ -51,7 +102,6 @@ class GroupCreator {
             </div>
         `).join('');
 
-        // Add click handlers
         container.querySelectorAll('.team-option').forEach(option => {
             option.addEventListener('click', () => this.toggleTeam(option));
         });
@@ -75,8 +125,7 @@ class GroupCreator {
     async handleSubmit(e) {
         e.preventDefault();
 
-        if (this.selectedTeams.size === 0) {
-            this.showError('Please select at least one team to track');
+        if (!this.validateForm(e.target)) {
             return;
         }
 
@@ -88,23 +137,13 @@ class GroupCreator {
             const formData = new FormData();
             const form = e.target;
             
-            // Append all form fields
-            formData.append('name', form.querySelector('#name').value);
+            formData.append('name', form.querySelector('#name').value.trim());
             formData.append('league', form.querySelector('input[name="league"]:checked').value);
             formData.append('privacy_type', form.querySelector('select[name="privacy_type"]').value);
-            formData.append('description', form.querySelector('#description').value || '');
+            formData.append('description', form.querySelector('#description').value.trim());
             
-            // Append each selected team ID
             this.selectedTeams.forEach(teamId => {
                 formData.append('tracked_teams', teamId);
-            });
-
-            console.log('Submitting form with data:', {
-                name: form.querySelector('#name').value,
-                league: form.querySelector('input[name="league"]:checked').value,
-                privacy_type: form.querySelector('select[name="privacy_type"]').value,
-                description: form.querySelector('#description').value,
-                tracked_teams: Array.from(this.selectedTeams)
             });
 
             const response = await fetch('/group/create', {
@@ -113,7 +152,6 @@ class GroupCreator {
             });
 
             const data = await response.json();
-            console.log('Server response:', data);
             
             if (response.ok && data.status === 'success') {
                 window.location.href = data.redirect_url;
@@ -130,8 +168,12 @@ class GroupCreator {
     }
 
     showError(message) {
+        // Remove any existing error messages
+        const existingErrors = document.querySelectorAll('.error-message');
+        existingErrors.forEach(error => error.remove());
+
         const errorDiv = document.createElement('div');
-        errorDiv.className = 'fixed bottom-4 right-4 bg-red-100 text-red-700 p-4 rounded shadow-lg z-50';
+        errorDiv.className = 'error-message fixed bottom-4 right-4 bg-red-100 text-red-700 p-4 rounded shadow-lg z-50';
         errorDiv.textContent = message;
         
         document.body.appendChild(errorDiv);
