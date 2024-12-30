@@ -65,6 +65,14 @@ def init_services(app):
             # Register custom JSON encoders for enums
             from flask.json.provider import JSONProvider
             class CustomJSONProvider(JSONProvider):
+                def dumps(self, obj, **kwargs):
+                    import json
+                    return json.dumps(obj, default=self.default, **kwargs)
+
+                def loads(self, s, **kwargs):
+                    import json
+                    return json.loads(s, **kwargs)
+
                 def default(self, obj):
                     if isinstance(obj, (MatchStatus, GroupPrivacyType, MemberRole, PredictionStatus)):
                         return obj.name
