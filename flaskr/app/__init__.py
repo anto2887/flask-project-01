@@ -45,7 +45,12 @@ def init_services(app):
         try:
             from app.api_client import initialize_services
             from app.services.team_service import TeamService
+            from app.models import MatchStatus, GroupPrivacyType, MemberRole, PredictionStatus
             
+            # Register enum convertors for SQLAlchemy
+            db.event.listen(db.session, 'before_flush', lambda session, ctx, instances: None)
+            
+            # Initialize services
             football_api, _ = initialize_services()
             if not football_api:
                 app.logger.error("Failed to initialize FootballAPIService")
@@ -57,7 +62,18 @@ def init_services(app):
             app.config['FOOTBALL_API_SERVICE'] = football_api
             app.config['TEAM_SERVICE'] = team_service
             
-            app.logger.info("API services initialized successfully")
+            # Register custom JSON encoders for enums
+            from flask.json.provider import JSONProvider
+            class CustomJSONProvider(JSONProvider):
+                def default(self, obj):
+                    if isinstance(obj, (MatchStatus, GroupPrivacyType, MemberRole, PredictionStatus)):
+                        return obj.name
+                    return super().default(obj)
+                    
+            app.json_provider_class = CustomJSONProvider
+            app.json = CustomJSONProvider(app)
+            
+            app.logger.info("API services and enum handlers initialized successfully")
         except Exception as e:
             app.logger.error(f"Failed to initialize API services: {str(e)}")
             raise

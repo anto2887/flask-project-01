@@ -70,13 +70,14 @@ class GroupCreator {
             teamsContainer.innerHTML = '<div class="p-4 text-center">Loading teams...</div>';
 
             const response = await fetch(`/api/teams/${encodeURIComponent(league)}`);
+            const data = await response.json();
+
             if (!response.ok) {
-                throw new Error('Failed to fetch teams');
+                throw new Error(data.message || 'Failed to fetch teams');
             }
 
-            const data = await response.json();
-            
-            if (data.status === 'success' && Array.isArray(data.teams)) {
+            if (data.status === 'success' && data.teams) {
+                console.log('Received teams:', data.teams);
                 this.renderTeams(data.teams);
             } else {
                 throw new Error(data.message || 'No teams found');
