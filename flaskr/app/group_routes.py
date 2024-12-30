@@ -131,11 +131,19 @@ def get_league_teams(league):
             return jsonify({'status': 'error', 'message': 'Service unavailable'}), 500
 
         teams = team_service.get_league_teams(league)
+        # Add detailed debug logging
+        current_app.logger.debug(f"Teams data structure for {league}: {teams}")
+        current_app.logger.debug(f"Number of teams retrieved: {len(teams) if teams else 0}")
+        if teams and len(teams) > 0:
+            current_app.logger.debug(f"Sample team structure: {teams[0]}")
+        
         if not teams:
             current_app.logger.warning(f"No teams found for league: {league}")
             return jsonify({'status': 'error', 'message': 'No teams found for the given league'}), 404
 
-        return jsonify({'status': 'success', 'teams': teams})
+        response_data = {'status': 'success', 'teams': teams}
+        current_app.logger.debug(f"Sending response: {response_data}")
+        return jsonify(response_data)
 
     except Exception as e:
         current_app.logger.error(f"Error fetching teams: {str(e)}")
