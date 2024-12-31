@@ -14,7 +14,7 @@
                 {% if current_user.is_authenticated %}
                     <span>{{ current_user.username }}</span>
                     <a href="{{ url_for('auth.logout') }}">Log Out</a>
-                    <a href="{{ url_for('group.create_group') }}" class="nav-btn">Create Group</a>
+                    <a href="{{ url_for('group.create') }}" class="nav-btn">Create Group</a>
                     <a href="{{ url_for('group.join_group') }}" class="nav-btn">Join Group</a>
                     {% if user_admin_groups %}
                         <div class="dropdown">

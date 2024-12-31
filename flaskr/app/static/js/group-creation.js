@@ -85,7 +85,15 @@ class GroupCreator {
             teamsContainer.innerHTML = '<div class="p-4 text-center">Loading teams...</div>';
 
             console.log('Fetching teams for league:', league);
-            const response = await fetch(`/api/teams/${encodeURIComponent(league)}`);
+            // Add CSRF token to this request
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            const response = await fetch(`/api/teams/${encodeURIComponent(league)}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken
+                },
+                credentials: 'same-origin'
+            });
             console.log('Response status:', response.status);
             
             const data = await response.json();
@@ -204,27 +212,21 @@ class GroupCreator {
         submitButton.textContent = 'Creating...';
 
         try {
-            const formData = new FormData();
-            const form = e.target;
+            const formData = new FormData(e.target);
             
-            const name = form.querySelector('#name').value.trim();
-            const league = form.querySelector('input[name="league"]:checked').value;
-            const privacyType = form.querySelector('select[name="privacy_type"]').value;
-            const description = form.querySelector('#description').value.trim();
-            
+            // Get CSRF token from meta tag
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            console.log('CSRF Token found:', !!csrfToken);
+
             console.log('Form data:', {
-                name,
-                league,
-                privacyType,
-                description,
+                name: formData.get('name'),
+                league: formData.get('league'),
+                privacyType: formData.get('privacy_type'),
+                description: formData.get('description'),
                 selectedTeams: Array.from(this.selectedTeams)
             });
 
-            formData.append('name', name);
-            formData.append('league', league);
-            formData.append('privacy_type', privacyType);
-            formData.append('description', description);
-            
+            // Add selected teams to form data
             this.selectedTeams.forEach(teamId => {
                 formData.append('tracked_teams', teamId);
             });
@@ -232,7 +234,12 @@ class GroupCreator {
             console.log('Sending form data to server...');
             const response = await fetch('/group/create', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken
+                },
+                credentials: 'same-origin'
             });
 
             const data = await response.json();
@@ -269,5 +276,14 @@ class GroupCreator {
 // Initialize when document loads
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Document loaded, initializing GroupCreator');
+    
+    // Debug check for CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]');
+    if (!csrfToken) {
+        console.error('CSRF token meta tag not found');
+    } else {
+        console.log('CSRF token meta tag found');
+    }
+    
     const groupCreator = new GroupCreator();
 });

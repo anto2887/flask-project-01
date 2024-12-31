@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, current_app
 from flask_login import login_required, current_user
+from flask_wtf.csrf import generate_csrf
 from app.services.group_service import GroupService
 from app.services.permission_service import PermissionService
 from app.services.analytics_service import AnalyticsService
@@ -12,6 +13,7 @@ group_bp = Blueprint('group', __name__, url_prefix='/group')
 def create_group():
     if request.method == 'POST':
         try:
+            current_app.logger.debug('Headers received: %s', dict(request.headers))
             current_app.logger.debug('Form data received: %s', request.form)
             current_app.logger.debug('Files received: %s', request.files)
             
@@ -83,7 +85,8 @@ def create_group():
                 'message': 'An unexpected error occurred while creating the group'
             }), 500
 
-    return render_template('group/create.html')
+    # For GET requests, pass CSRF token
+    return render_template('group/create.html', csrf_token=generate_csrf())
 
 @group_bp.route('/join', methods=['GET', 'POST'])
 @login_required
@@ -115,7 +118,7 @@ def join_group():
                 'message': 'An unexpected error occurred while joining the group'
             }), 500
 
-    return render_template('group/join.html')
+    return render_template('group/join.html', csrf_token=generate_csrf())
 
 @group_bp.route('/<int:group_id>/manage')
 @login_required
@@ -134,7 +137,8 @@ def manage_group(group_id):
             members=GroupService.get_group_members(group_id),
             pending_requests=GroupService.get_pending_requests(group_id),
             analytics=analytics_service.generate_group_analytics(group_id),
-            member_count=len(group.users)
+            member_count=len(group.users),
+            csrf_token=generate_csrf()
         )
 
     except Exception as e:
@@ -151,7 +155,6 @@ def get_league_teams(league):
             return jsonify({'status': 'error', 'message': 'Service unavailable'}), 500
 
         teams = team_service.get_league_teams(league)
-        # Add detailed debug logging
         current_app.logger.debug(f"Teams data structure for {league}: {teams}")
         current_app.logger.debug(f"Number of teams retrieved: {len(teams) if teams else 0}")
         if teams and len(teams) > 0:
@@ -162,7 +165,6 @@ def get_league_teams(league):
             return jsonify({'status': 'error', 'message': 'No teams found for the given league'}), 404
 
         response_data = {'status': 'success', 'teams': teams}
-        current_app.logger.debug(f"Sending response: {response_data}")
         return jsonify(response_data)
 
     except Exception as e:

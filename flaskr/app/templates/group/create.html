@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Create Group - PrdiktIt</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -12,6 +13,8 @@
             <h1 class="text-2xl font-bold text-[#05445E] mb-6">Create New Group</h1>
             
             <form method="POST" class="space-y-6" id="createGroupForm" action="{{ url_for('group.create') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
                 <div class="form-group">
                     <label for="name" class="block text-[#05445E] font-medium mb-2">Group Name</label>
                     <input type="text" 
@@ -77,19 +80,47 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/group-creation.js') }}"></script>
+    <!-- Debug script loading -->
+    <script>
+        console.log('Initial script tag executed');
+    </script>
+    
+    <script src="{{ url_for('static', filename='js/group-creation.js') }}" 
+            onerror="console.error('Failed to load group-creation.js')"
+            onload="console.log('group-creation.js loaded successfully')">
+    </script>
+    
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             console.log('Document loaded');
-            console.log('GroupCreator script loaded:', typeof GroupCreator !== 'undefined');
             
+            // Debug GroupCreator class
+            if (typeof GroupCreator === 'undefined') {
+                console.error('GroupCreator class not loaded');
+            } else {
+                console.log('GroupCreator class available');
+            }
+            
+            // Debug form element
             const form = document.getElementById('createGroupForm');
-            console.log('Form element found:', form !== null);
-            
-            if (form) {
+            if (!form) {
+                console.error('Create group form not found');
+            } else {
+                console.log('Form found:', form);
+                
+                // Monitor form submission
                 form.addEventListener('submit', function(e) {
                     console.log('Native form submit event triggered');
+                    // Let GroupCreator handle the actual submission
                 });
+            }
+            
+            // Debug teams container
+            const teamsContainer = document.getElementById('teamsContainer');
+            if (!teamsContainer) {
+                console.error('Teams container not found');
+            } else {
+                console.log('Teams container found');
             }
         });
     </script>

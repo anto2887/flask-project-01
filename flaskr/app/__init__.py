@@ -5,6 +5,7 @@ from logging.handlers import RotatingFileHandler
 
 from flask import Flask, current_app, render_template, redirect, url_for
 from flask_login import LoginManager, current_user
+from flask_wtf.csrf import CSRFProtect
 from sqlalchemy import create_engine
 from flask.cli import with_appcontext
 
@@ -89,6 +90,10 @@ def init_services(app):
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
 
+    # Initialize CSRF protection
+    csrf = CSRFProtect()
+    csrf.init_app(app)
+
     try:
         os.makedirs(app.instance_path)
     except OSError:
@@ -109,7 +114,11 @@ def create_app(test_config=None):
         },
         CREATE_TABLES_ON_STARTUP=os.environ.get("CREATE_TABLES_ON_STARTUP") == 'True',
         POPULATE_DATA_ON_STARTUP=os.environ.get("POPULATE_DATA_ON_STARTUP") == 'True',
-        DROP_EXISTING_TABLES=os.environ.get("DROP_EXISTING_TABLES") == 'True'
+        DROP_EXISTING_TABLES=os.environ.get("DROP_EXISTING_TABLES") == 'True',
+        # CSRF settings
+        WTF_CSRF_ENABLED=True,
+        WTF_CSRF_CHECK_DEFAULT=True,
+        WTF_CSRF_TIME_LIMIT=3600  # 1 hour token expiration
     )
 
     if test_config is None:
