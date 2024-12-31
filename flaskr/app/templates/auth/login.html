@@ -12,6 +12,7 @@
             <img src="{{ url_for('static', filename='pictures/soccer-ball.png') }}" alt="Soccer Ball" class="logo">
             <h2>PrdiktIt - Log In</h2>
             <form method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label for="username">Username</label>
                     <input type="text" id="username" name="username" required>
