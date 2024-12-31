@@ -4,10 +4,12 @@ class GroupCreator {
         this.VALID_PRIVACY_TYPES = ['PRIVATE', 'SEMI_PRIVATE'];
         this.initializeLeagueSelector();
         this.initializeForm();
+        console.log('GroupCreator initialized');
     }
 
     initializeLeagueSelector() {
         const leagueInputs = document.querySelectorAll('input[name="league"]');
+        console.log('Found league inputs:', leagueInputs.length);
         leagueInputs.forEach(input => {
             input.addEventListener('change', (e) => {
                 this.loadTeams(e.target.value);
@@ -16,14 +18,25 @@ class GroupCreator {
     }
 
     initializeForm() {
-        const form = document.querySelector('form');
-        form.addEventListener('submit', (e) => this.handleSubmit(e));
+        const form = document.querySelector('#createGroupForm');
+        console.log('Found form:', form);
 
-        // Add validation for privacy type select
-        const privacySelect = form.querySelector('select[name="privacy_type"]');
-        privacySelect.addEventListener('change', (e) => {
-            this.validatePrivacyType(e.target);
+        if (!form) {
+            console.error('Create group form not found!');
+            return;
+        }
+
+        form.addEventListener('submit', (e) => {
+            console.log('Form submission triggered');
+            this.handleSubmit(e);
         });
+
+        const privacySelect = form.querySelector('select[name="privacy_type"]');
+        if (privacySelect) {
+            privacySelect.addEventListener('change', (e) => {
+                this.validatePrivacyType(e.target);
+            });
+        }
     }
 
     validatePrivacyType(select) {
@@ -38,7 +51,8 @@ class GroupCreator {
     }
 
     validateForm(form) {
-        // Validate required fields
+        console.log('Validating form...');
+        
         const name = form.querySelector('#name').value.trim();
         if (!name) {
             this.showError('Group name is required');
@@ -61,6 +75,7 @@ class GroupCreator {
             return false;
         }
 
+        console.log('Form validation passed');
         return true;
     }
 
@@ -80,14 +95,12 @@ class GroupCreator {
                 throw new Error(data.message || 'Failed to fetch teams');
             }
 
-            // Since we know the API returns an array directly
-            const teams = Array.isArray(data) ? data : [];
+            const teams = data.teams || [];
             if (teams.length === 0) {
                 throw new Error('No teams available for this league');
             }
 
             console.log('Teams array:', teams);
-            // Log a sample team to verify structure
             console.log('Sample team structure:', teams[0]);
             this.renderTeams(teams);
             
@@ -100,24 +113,48 @@ class GroupCreator {
     }
 
     renderTeams(teams) {
-        const container = document.getElementById('teamsContainer');
-        container.innerHTML = teams.map(team => `
-            <div class="team-option flex items-center p-2 border rounded cursor-pointer hover:bg-gray-50" data-team-id="${team.id}">
-                <img src="${team.logo || team.team_logo || '/static/pictures/default-team.png'}" 
-                     alt="${team.name || team.team_name} logo" 
-                     class="w-12 h-12 object-contain"
-                     onerror="this.src='/static/pictures/default-team.png'">
-                <span class="ml-2">${team.name || team.team_name}</span>
-                <input type="checkbox" 
-                       name="tracked_teams" 
-                       value="${team.id}"
-                       class="hidden">
-            </div>
-        `).join('');
+        try {
+            console.log('Starting team rendering, number of teams:', teams.length);
+            const container = document.getElementById('teamsContainer');
+            
+            const teamElements = teams.map(team => {
+                console.log('Processing team:', team);
+                
+                const teamId = team.id;
+                const teamName = team.name || team.team_name;
+                const teamLogo = team.logo || team.team_logo;
+                
+                if (!teamId || !teamName) {
+                    console.error('Invalid team data:', team);
+                    return ''; // Skip invalid teams
+                }
 
-        container.querySelectorAll('.team-option').forEach(option => {
-            option.addEventListener('click', () => this.toggleTeam(option));
-        });
+                return `
+                    <div class="team-option flex items-center p-2 border rounded cursor-pointer hover:bg-gray-50" data-team-id="${teamId}">
+                        <img src="${teamLogo}" 
+                             alt="${teamName} logo" 
+                             class="w-12 h-12 object-contain"
+                             onerror="this.style.display='none'">
+                        <span class="ml-2">${teamName}</span>
+                        <input type="checkbox" 
+                               name="tracked_teams" 
+                               value="${teamId}"
+                               class="hidden">
+                    </div>
+                `;
+            }).filter(Boolean).join('');
+
+            container.innerHTML = teamElements || '<div class="p-4 text-center">No teams available</div>';
+
+            container.querySelectorAll('.team-option').forEach(option => {
+                option.addEventListener('click', () => this.toggleTeam(option));
+            });
+            
+            console.log('Team rendering complete');
+        } catch (error) {
+            console.error('Error in renderTeams:', error);
+            throw error;
+        }
     }
 
     toggleTeam(element) {
@@ -153,12 +190,16 @@ class GroupCreator {
 
     async handleSubmit(e) {
         e.preventDefault();
+        console.log('HandleSubmit called');
 
         if (!this.validateForm(e.target)) {
+            console.log('Form validation failed');
             return;
         }
 
         const submitButton = e.target.querySelector('button[type="submit"]');
+        console.log('Submit button:', submitButton);
+
         submitButton.disabled = true;
         submitButton.textContent = 'Creating...';
 
@@ -166,23 +207,39 @@ class GroupCreator {
             const formData = new FormData();
             const form = e.target;
             
-            formData.append('name', form.querySelector('#name').value.trim());
-            formData.append('league', form.querySelector('input[name="league"]:checked').value);
-            formData.append('privacy_type', form.querySelector('select[name="privacy_type"]').value);
-            formData.append('description', form.querySelector('#description').value.trim());
+            const name = form.querySelector('#name').value.trim();
+            const league = form.querySelector('input[name="league"]:checked').value;
+            const privacyType = form.querySelector('select[name="privacy_type"]').value;
+            const description = form.querySelector('#description').value.trim();
+            
+            console.log('Form data:', {
+                name,
+                league,
+                privacyType,
+                description,
+                selectedTeams: Array.from(this.selectedTeams)
+            });
+
+            formData.append('name', name);
+            formData.append('league', league);
+            formData.append('privacy_type', privacyType);
+            formData.append('description', description);
             
             this.selectedTeams.forEach(teamId => {
                 formData.append('tracked_teams', teamId);
             });
 
+            console.log('Sending form data to server...');
             const response = await fetch('/group/create', {
                 method: 'POST',
                 body: formData
             });
 
             const data = await response.json();
+            console.log('Server response:', data);
             
             if (response.ok && data.status === 'success') {
+                console.log('Redirecting to:', data.redirect_url);
                 window.location.href = data.redirect_url;
             } else {
                 throw new Error(data.message || 'Failed to create group');
@@ -197,7 +254,6 @@ class GroupCreator {
     }
 
     showError(message) {
-        // Remove any existing error messages
         const existingErrors = document.querySelectorAll('.error-message');
         existingErrors.forEach(error => error.remove());
 
@@ -212,5 +268,6 @@ class GroupCreator {
 
 // Initialize when document loads
 document.addEventListener('DOMContentLoaded', () => {
-    new GroupCreator();
+    console.log('Document loaded, initializing GroupCreator');
+    const groupCreator = new GroupCreator();
 });

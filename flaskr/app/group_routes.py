@@ -12,15 +12,22 @@ group_bp = Blueprint('group', __name__, url_prefix='/group')
 def create_group():
     if request.method == 'POST':
         try:
+            current_app.logger.debug('Form data received: %s', request.form)
+            current_app.logger.debug('Files received: %s', request.files)
+            
             # Get form data
             name = request.form['name']
             league = request.form['league']
             privacy_type_str = request.form['privacy_type']
             description = request.form.get('description')
             tracked_teams = request.form.getlist('tracked_teams')
+            
+            current_app.logger.debug('Parsed form data: name=%s, league=%s, privacy=%s, teams=%s', 
+                                   name, league, privacy_type_str, tracked_teams)
 
             # Validate required fields
             if not name or not league:
+                current_app.logger.warning('Missing required fields: name=%s, league=%s', name, league)
                 return jsonify({
                     'status': 'error',
                     'message': 'Name and league are required'
@@ -29,6 +36,7 @@ def create_group():
             # Convert privacy_type string to enum
             try:
                 privacy_type = GroupPrivacyType[privacy_type_str]
+                current_app.logger.debug('Privacy type converted: %s -> %s', privacy_type_str, privacy_type)
             except KeyError:
                 current_app.logger.error(f"Invalid privacy_type value: {privacy_type_str}")
                 return jsonify({
@@ -37,6 +45,15 @@ def create_group():
                 }), 400
 
             # Create group
+            current_app.logger.debug('Attempting to create group with data: %s', {
+                'name': name,
+                'league': league,
+                'creator_id': current_user.id,
+                'privacy_type': privacy_type,
+                'description': description,
+                'tracked_teams': tracked_teams
+            })
+
             group, error = GroupService.create_group(
                 name=name,
                 league=league,
@@ -51,13 +68,16 @@ def create_group():
                 return jsonify({'status': 'error', 'message': error}), 400
 
             current_app.logger.info(f"Group '{name}' created successfully by user {current_user.id}")
+            redirect_url = url_for('group.manage', group_id=group.id)
+            current_app.logger.debug('Redirecting to: %s', redirect_url)
+            
             return jsonify({
                 'status': 'success',
-                'redirect_url': url_for('group.manage', group_id=group.id)
+                'redirect_url': redirect_url
             })
 
         except Exception as e:
-            current_app.logger.error(f"Error creating group: {str(e)}")
+            current_app.logger.error(f"Error creating group: {str(e)}", exc_info=True)
             return jsonify({
                 'status': 'error',
                 'message': 'An unexpected error occurred while creating the group'
