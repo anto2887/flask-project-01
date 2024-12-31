@@ -3,6 +3,7 @@ class MatchUpdater {
         this.updateInterval = 60000; // 1 minute
         this.liveMatchesContainer = document.getElementById('live-matches-container');
         this.predictionInputsContainer = document.getElementById('prediction-inputs');
+        this.csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
         this.initializeEventListeners();
         this.startUpdates();
     }
@@ -31,7 +32,13 @@ class MatchUpdater {
 
     async updateLiveMatches() {
         try {
-            const response = await fetch('/api/live-matches');
+            const response = await fetch('/api/live-matches', {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': this.csrfToken
+                },
+                credentials: 'same-origin'
+            });
             const data = await response.json();
 
             if (data.status === 'success') {
@@ -103,12 +110,15 @@ class MatchUpdater {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': this.csrfToken
                 },
                 body: JSON.stringify({
                     fixture_id: fixtureId,
                     score1: parseInt(homeScore),
                     score2: parseInt(awayScore)
-                })
+                }),
+                credentials: 'same-origin'
             });
 
             const data = await response.json();
@@ -141,7 +151,12 @@ class MatchUpdater {
         try {
             button.disabled = true;
             const response = await fetch(`/api/reset-prediction/${fixtureId}`, {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': this.csrfToken
+                },
+                credentials: 'same-origin'
             });
 
             const data = await response.json();
@@ -180,5 +195,13 @@ class MatchUpdater {
 
 // Initialize when document loads
 document.addEventListener('DOMContentLoaded', () => {
+    // Check for CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]');
+    if (!csrfToken) {
+        console.error('CSRF token meta tag not found');
+        return;
+    }
+    console.log('CSRF token found, initializing MatchUpdater');
+    
     new MatchUpdater();
 });
