@@ -80,20 +80,17 @@ class GroupCreator {
                 throw new Error(data.message || 'Failed to fetch teams');
             }
 
-            if (data.status === 'success' && Array.isArray(data.teams)) {
-                console.log('Teams array:', data.teams);
-                if (data.teams.length === 0) {
-                    throw new Error('No teams available for this league');
-                }
-                // Log a sample team to verify structure
-                if (data.teams.length > 0) {
-                    console.log('Sample team structure:', data.teams[0]);
-                }
-                this.renderTeams(data.teams);
-            } else {
-                console.error('Invalid data structure:', data);
-                throw new Error('Invalid response format from server');
+            // Since we know the API returns an array directly
+            const teams = Array.isArray(data) ? data : [];
+            if (teams.length === 0) {
+                throw new Error('No teams available for this league');
             }
+
+            console.log('Teams array:', teams);
+            // Log a sample team to verify structure
+            console.log('Sample team structure:', teams[0]);
+            this.renderTeams(teams);
+            
         } catch (error) {
             console.error('Error loading teams:', error);
             this.showError(error.message || 'Failed to load teams');
@@ -103,49 +100,24 @@ class GroupCreator {
     }
 
     renderTeams(teams) {
-        try {
-            console.log('Starting team rendering, number of teams:', teams.length);
-            const container = document.getElementById('teamsContainer');
-            
-            const teamElements = teams.map(team => {
-                // Log individual team data for debugging
-                console.log('Processing team:', team);
-                
-                const teamId = team.id;
-                const teamName = team.name || team.team_name;
-                const teamLogo = team.logo || team.team_logo;
-                
-                if (!teamId || !teamName) {
-                    console.error('Invalid team data:', team);
-                    return ''; // Skip invalid teams
-                }
+        const container = document.getElementById('teamsContainer');
+        container.innerHTML = teams.map(team => `
+            <div class="team-option flex items-center p-2 border rounded cursor-pointer hover:bg-gray-50" data-team-id="${team.id}">
+                <img src="${team.logo || team.team_logo || '/static/pictures/default-team.png'}" 
+                     alt="${team.name || team.team_name} logo" 
+                     class="w-12 h-12 object-contain"
+                     onerror="this.src='/static/pictures/default-team.png'">
+                <span class="ml-2">${team.name || team.team_name}</span>
+                <input type="checkbox" 
+                       name="tracked_teams" 
+                       value="${team.id}"
+                       class="hidden">
+            </div>
+        `).join('');
 
-                return `
-                    <div class="team-option flex items-center p-2 border rounded cursor-pointer hover:bg-gray-50" data-team-id="${teamId}">
-                        <img src="${teamLogo || '/static/pictures/default-team.png'}" 
-                             alt="${teamName} logo" 
-                             class="w-12 h-12 object-contain"
-                             onerror="this.src='/static/pictures/default-team.png'">
-                        <span class="ml-2">${teamName}</span>
-                        <input type="checkbox" 
-                               name="tracked_teams" 
-                               value="${teamId}"
-                               class="hidden">
-                    </div>
-                `;
-            }).filter(Boolean).join('');
-
-            container.innerHTML = teamElements || '<div class="p-4 text-center">No teams available</div>';
-
-            container.querySelectorAll('.team-option').forEach(option => {
-                option.addEventListener('click', () => this.toggleTeam(option));
-            });
-            
-            console.log('Team rendering complete');
-        } catch (error) {
-            console.error('Error in renderTeams:', error);
-            throw error;
-        }
+        container.querySelectorAll('.team-option').forEach(option => {
+            option.addEventListener('click', () => this.toggleTeam(option));
+        });
     }
 
     toggleTeam(element) {
