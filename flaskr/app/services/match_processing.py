@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
 from typing import Optional, List
 from flask import current_app
-from app.models import db, Fixture, UserPredictions, UserResults
+from app.models import db, Fixture, UserPredictions, UserResults, MatchStatus
 from app.services.football_api import FootballAPIService
+from datetime import datetime, timedelta, timezone
+
 
 class MatchProcessingService:
     def __init__(self, football_api: FootballAPIService):
@@ -169,3 +171,24 @@ class MatchProcessingService:
         actual_outcome = "win" if actual_score1 > actual_score2 else "lose" if actual_score1 < actual_score2 else "draw"
 
         return 1 if pred_outcome == actual_outcome else 0
+    
+    def get_prediction_deadlines():
+        """Retrieve prediction deadlines for upcoming fixtures."""
+        try:
+            # Fetch all upcoming fixtures
+            fixtures = Fixture.query.filter(
+                Fixture.status == MatchStatus.NOT_STARTED,
+                Fixture.date > datetime.now(timezone.utc)
+            ).all()
+
+            # Create a dictionary with fixture IDs and their deadlines
+            deadlines = {}
+            for fixture in fixtures:
+                # Assuming prediction deadline is 1 hour before the match starts
+                deadline = fixture.date - timedelta(hours=1)
+                deadlines[fixture.fixture_id] = deadline.isoformat()
+
+            return deadlines
+        except Exception as e:
+            current_app.logger.error(f"Error fetching prediction deadlines: {str(e)}")
+            return {}

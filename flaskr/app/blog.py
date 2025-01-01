@@ -11,6 +11,7 @@ from app.models import (
 from app.season import get_current_season
 from app.services.football_api import FootballAPIService
 from app.api_client import get_secret
+from app.services.match_processing import get_prediction_deadlines
 
 bp = Blueprint('blog', __name__)
 
@@ -89,6 +90,12 @@ def index():
         current_matchday = get_current_matchday(current_group.league if current_group else None)
         top_performers = get_top_performers(current_matchday)
 
+        prediction_deadlines = {}
+        try:
+            prediction_deadlines = get_prediction_deadlines()
+        except Exception as e:
+            current_app.logger.error(f"Error fetching prediction deadlines: {str(e)}")
+
         return render_template('base.html',
             live_matches=live_matches,
             upcoming_matches=upcoming_matches,
@@ -98,7 +105,8 @@ def index():
             user_groups=user_groups_query,
             seasons=seasons,
             current_matchday=current_matchday,
-            top_performers=top_performers
+            top_performers=top_performers,
+            prediction_deadlines=prediction_deadlines
         )
         
     except Exception as e:
