@@ -172,23 +172,23 @@ class MatchProcessingService:
 
         return 1 if pred_outcome == actual_outcome else 0
     
-    def get_prediction_deadlines():
-        """Retrieve prediction deadlines for upcoming fixtures."""
-        try:
-            # Fetch all upcoming fixtures
-            fixtures = Fixture.query.filter(
-                Fixture.status == MatchStatus.NOT_STARTED,
-                Fixture.date > datetime.now(timezone.utc)
-            ).all()
+def get_prediction_deadlines():
+    """Retrieve prediction deadlines for upcoming fixtures."""
+    try:
+        # Fetch all upcoming fixtures
+        fixtures = Fixture.query.filter(
+            Fixture.status == MatchStatus.NOT_STARTED,
+            Fixture.date > datetime.now(timezone.utc)
+        ).all()
 
-            # Create a dictionary with fixture IDs and their deadlines
-            deadlines = {}
-            for fixture in fixtures:
-                # Assuming prediction deadline is 1 hour before the match starts
-                deadline = fixture.date - timedelta(hours=1)
-                deadlines[fixture.fixture_id] = deadline.isoformat()
+        # Create a dictionary with fixture IDs and their deadlines
+        deadlines = {}
+        for fixture in fixtures:
+            # Assuming prediction deadline is 1 hour before the match starts
+            deadline = fixture.date - timedelta(hours=1)
+            deadlines[fixture.fixture_id] = deadline.isoformat()
 
-            return deadlines
-        except Exception as e:
-            current_app.logger.error(f"Error fetching prediction deadlines: {str(e)}")
-            return {}
+        return deadlines
+    except Exception as e:
+        current_app.logger.error(f"Error fetching prediction deadlines: {str(e)}")
+        return {}
