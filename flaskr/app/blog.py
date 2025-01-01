@@ -46,39 +46,40 @@ def get_current_matchday(league: Optional[str] = None) -> int:
 @login_required
 def index():
     try:
-        # Get user groups
-        user_groups_query = Group.query.join(user_groups).filter(
-            user_groups.c.user_id == current_user.id
-        ).all()
-        
-        # Get live matches
-        live_matches = []
-        for group in user_groups_query:
-            matches = Fixture.query.filter(
-                Fixture.league == group.league,
-                Fixture.status.in_([MatchStatus.LIVE, MatchStatus.HALFTIME])
+        user_groups_query = []
+        try:
+            user_groups_query = Group.query.join(user_groups).filter(
+                user_groups.c.user_id == current_user.id
             ).all()
-            live_matches.extend(matches)
-            
-        # Get upcoming matches for predictions
+        except Exception as e:
+            current_app.logger.error(f"Error fetching user groups: {str(e)}")
+
+        live_matches = []
+        try:
+            for group in user_groups_query:
+                matches = Fixture.query.filter(
+                    Fixture.league == group.league,
+                    Fixture.status.in_([MatchStatus.LIVE, MatchStatus.HALFTIME])
+                ).all()
+                live_matches.extend(matches)
+        except Exception as e:
+            current_app.logger.error(f"Error fetching live matches: {str(e)}")
+
         upcoming_matches = Fixture.query.filter(
             Fixture.status == MatchStatus.NOT_STARTED,
             Fixture.date > datetime.now(timezone.utc)
         ).order_by(Fixture.date).limit(5).all()
         
-        # Get user stats and predictions
         seasons = db.session.query(UserPredictions.season.distinct()).all()
         seasons = [season[0] for season in seasons]
         
         current_group = user_groups_query[0] if user_groups_query else None
+        users = [current_user]
         if current_group:
             users = Users.query.join(user_groups).filter(
                 user_groups.c.group_id == current_group.id
             ).all()
-        else:
-            users = [current_user]
             
-        # Get user points and predictions
         user_points = get_user_points()
         recent_predictions = UserPredictions.query.filter_by(
             author_id=current_user.id,
@@ -109,29 +110,36 @@ def index():
 @login_required
 def get_live_matches():
     try:
-        user_groups = Group.query.join(user_groups).filter(
-            user_groups.c.user_id == current_user.id
-        ).all()
-        
-        live_matches = []
-        for group in user_groups:
-            matches = Fixture.query.filter(
-                Fixture.league == group.league,
-                Fixture.status.in_([MatchStatus.LIVE, MatchStatus.HALFTIME])
+        user_groups_query = []
+        try:
+            user_groups_query = Group.query.join(user_groups).filter(
+                user_groups.c.user_id == current_user.id
             ).all()
-            
-            live_matches.extend([{
-                'fixture_id': match.fixture_id,
-                'home_team': match.home_team,
-                'away_team': match.away_team,
-                'home_team_logo': match.home_team_logo,
-                'away_team_logo': match.away_team_logo,
-                'home_score': match.home_score,
-                'away_score': match.away_score,
-                'status': match.status.value,
-                'league': match.league
-            } for match in matches])
-            
+        except Exception as e:
+            current_app.logger.error(f"Error fetching user groups: {str(e)}")
+
+        live_matches = []
+        try:
+            for group in user_groups_query:
+                matches = Fixture.query.filter(
+                    Fixture.league == group.league,
+                    Fixture.status.in_([MatchStatus.LIVE, MatchStatus.HALFTIME])
+                ).all()
+
+                live_matches.extend([{
+                    'fixture_id': match.fixture_id,
+                    'home_team': match.home_team,
+                    'away_team': match.away_team,
+                    'home_team_logo': match.home_team_logo,
+                    'away_team_logo': match.away_team_logo,
+                    'home_score': match.home_score,
+                    'away_score': match.away_score,
+                    'status': match.status.value,
+                    'league': match.league
+                } for match in matches])
+        except Exception as e:
+            current_app.logger.error(f"Error fetching live matches: {str(e)}")
+
         return jsonify({
             'status': 'success',
             'matches': live_matches
