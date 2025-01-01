@@ -1,20 +1,49 @@
+# Python
 **/__pycache__
 **/*.pyc
 **/*.pyo
 **/*.pyd
-.git
-.gitignore
-.env
-*.log
-.pytest_cache
-.coverage
-htmlcov/
-.vscode/
-*.egg-info/
-dist/
-build/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+terraform.tfvars
+*.tf
+
+# Logs and databases
 logs/
-node_modules/
+*.log
+*.sqlite
+*.db
+
+# Environment
+.env
 venv/
 env/
-.DS_Store
+.venv/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Development
+.vscode/
+.idea/
+*.swp
+*.swo
+README.md
+
+# Application specific
+*.json
+*.csv
