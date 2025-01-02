@@ -85,7 +85,6 @@ class GroupCreator {
             teamsContainer.innerHTML = '<div class="p-4 text-center">Loading teams...</div>';
 
             console.log('Fetching teams for league:', league);
-            // Add CSRF token to this request
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
             const response = await fetch(`/group/api/teams/${encodeURIComponent(league)}`, {
                 headers: {
@@ -103,7 +102,8 @@ class GroupCreator {
                 throw new Error(data.message || 'Failed to fetch teams');
             }
 
-            const teams = data.teams || [];
+            // Handle both possible formats: array or object with a teams key
+            const teams = Array.isArray(data) ? data : data.teams || [];
             if (teams.length === 0) {
                 throw new Error('No teams available for this league');
             }
@@ -213,10 +213,7 @@ class GroupCreator {
 
         try {
             const formData = new FormData(e.target);
-            
-            // Get CSRF token from meta tag
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-            console.log('CSRF Token found:', !!csrfToken);
 
             console.log('Form data:', {
                 name: formData.get('name'),
@@ -226,7 +223,6 @@ class GroupCreator {
                 selectedTeams: Array.from(this.selectedTeams)
             });
 
-            // Add selected teams to form data
             this.selectedTeams.forEach(teamId => {
                 formData.append('tracked_teams', teamId);
             });
@@ -277,7 +273,6 @@ class GroupCreator {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Document loaded, initializing GroupCreator');
     
-    // Debug check for CSRF token
     const csrfToken = document.querySelector('meta[name="csrf-token"]');
     if (!csrfToken) {
         console.error('CSRF token meta tag not found');
