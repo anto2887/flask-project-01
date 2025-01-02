@@ -102,8 +102,8 @@ class GroupCreator {
                 throw new Error(data.message || 'Failed to fetch teams');
             }
 
-            // Handle both possible formats: array or object with a teams key
-            const teams = Array.isArray(data) ? data : data.teams || [];
+            // Expect response to have a "teams" key
+            const teams = data.teams || [];
             if (teams.length === 0) {
                 throw new Error('No teams available for this league');
             }
