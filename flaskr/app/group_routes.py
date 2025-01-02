@@ -11,6 +11,9 @@ group_bp = Blueprint('group', __name__, url_prefix='/group')
 @group_bp.route('/create', methods=['GET', 'POST'])
 @login_required
 def create_group():
+    """Handle group creation page and form submission"""
+    current_app.logger.debug(f"Accessing create_group route via {request.method}")
+    
     if request.method == 'POST':
         try:
             current_app.logger.debug('Headers received: %s', dict(request.headers))
@@ -70,7 +73,7 @@ def create_group():
                 return jsonify({'status': 'error', 'message': error}), 400
 
             current_app.logger.info(f"Group '{name}' created successfully by user {current_user.id}")
-            redirect_url = url_for('group.manage', group_id=group.id)
+            redirect_url = url_for('group.manage_group', group_id=group.id)
             current_app.logger.debug('Redirecting to: %s', redirect_url)
             
             return jsonify({
@@ -91,6 +94,7 @@ def create_group():
 @group_bp.route('/join', methods=['GET', 'POST'])
 @login_required
 def join_group():
+    """Handle group joining page and form submission"""
     if request.method == 'POST':
         try:
             data = request.get_json()
@@ -123,6 +127,7 @@ def join_group():
 @group_bp.route('/<int:group_id>/manage')
 @login_required
 def manage_group(group_id):
+    """Handle group management dashboard"""
     try:
         # Check admin permissions
         if not PermissionService.check_group_permission(current_user.id, group_id, MemberRole.ADMIN):
@@ -148,6 +153,7 @@ def manage_group(group_id):
 @group_bp.route('/api/teams/<league>')
 @login_required
 def get_league_teams(league):
+    """API endpoint to get teams for a specific league"""
     try:
         team_service = current_app.config.get('TEAM_SERVICE')
         if not team_service:
@@ -177,6 +183,7 @@ def get_league_teams(league):
 @group_bp.route('/<int:group_id>/members', methods=['POST'])
 @login_required
 def manage_members(group_id):
+    """Handle group member management actions"""
     try:
         # Check admin permissions
         if not PermissionService.check_group_permission(current_user.id, group_id, MemberRole.ADMIN):
@@ -215,6 +222,7 @@ def manage_members(group_id):
 @group_bp.route('/<int:group_id>/regenerate-code', methods=['POST'])
 @login_required
 def regenerate_code(group_id):
+    """Handle invite code regeneration"""
     try:
         # Check admin permissions
         if not PermissionService.check_group_permission(current_user.id, group_id, MemberRole.ADMIN):
