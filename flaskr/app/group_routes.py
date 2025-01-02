@@ -167,7 +167,7 @@ def get_league_teams(league):
 
         current_app.logger.debug(f"Using team service to fetch teams for: {league}")
         teams = team_service.get_league_teams(league)
-        current_app.logger.debug(f"Received teams data: {teams}")
+        current_app.logger.debug(f"Raw teams data received: {teams}")
 
         if not teams:
             current_app.logger.warning(f"No teams found for league: {league}")
@@ -176,10 +176,18 @@ def get_league_teams(league):
                 'message': 'No teams available for this league'
             }), 404
 
-        current_app.logger.info(f"Successfully retrieved {len(teams)} teams for {league}")
+        # Transform data to ensure it matches expected format
+        formatted_teams = [{
+            'id': team.get('id'),
+            'name': team.get('name'),
+            'logo': team.get('logo'),
+            'venue': team.get('venue')
+        } for team in teams]
+
+        current_app.logger.info(f"Successfully processed {len(formatted_teams)} teams for {league}")
         return jsonify({
             'status': 'success',
-            'teams': teams
+            'teams': formatted_teams
         })
 
     except Exception as e:

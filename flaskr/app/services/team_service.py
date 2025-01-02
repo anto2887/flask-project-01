@@ -20,21 +20,32 @@ class TeamService:
     def get_league_teams(self, league: str) -> List[Dict]:
         """Get all teams for a specific league."""
         try:
+            current_app.logger.info(f"Getting teams for league: {league}")
+            
             # Check cache first
             if self._should_use_cache(league):
-                return self._teams_cache.get(league, [])
+                cached_teams = self._teams_cache.get(league, [])
+                current_app.logger.info(f"Returning {len(cached_teams)} teams from cache")
+                return cached_teams
 
             league_id = self.league_ids.get(league)
             if not league_id:
-                raise ValueError(f"Unsupported league: {league}")
+                current_app.logger.error(f"No league ID found for: {league}")
+                return []
 
+            current_app.logger.debug(f"Using league ID: {league_id}")
             teams = self._fetch_teams_from_api(league_id)
+            
             if teams:
+                current_app.logger.info(f"Found {len(teams)} teams from API")
                 self._update_cache(league, teams)
-            return teams
+                return teams
+                
+            current_app.logger.warning("No teams found from API")
+            return []
 
         except Exception as e:
-            current_app.logger.error(f"Error fetching teams for {league}: {str(e)}")
+            current_app.logger.error(f"Error fetching teams: {str(e)}")
             return []
 
     def _should_use_cache(self, league: str) -> bool:
@@ -53,24 +64,28 @@ class TeamService:
     def _fetch_teams_from_api(self, league_id: int) -> List[Dict]:
         """Fetch teams from football API."""
         try:
+            current_app.logger.debug(f"Fetching teams for league ID: {league_id}")
             params = {
                 'league': league_id,
                 'season': datetime.now().year
             }
             
             response = self.api._make_request('teams', params)
+            current_app.logger.debug(f"API response received: {response}")
             
             if not response:
+                current_app.logger.warning("No response from API")
                 return []
-                
-            return [{
+                    
+            teams = [{
                 'id': team['team']['id'],
                 'name': team['team']['name'],
                 'logo': team['team']['logo'],
                 'venue': team['venue']['name'] if 'venue' in team else None,
-                'founded': team['team'].get('founded'),
-                'country': team['team'].get('country')
             } for team in response]
+
+            current_app.logger.info(f"Successfully processed {len(teams)} teams")
+            return teams
 
         except Exception as e:
             current_app.logger.error(f"API request failed: {str(e)}")

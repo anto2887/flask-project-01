@@ -137,21 +137,30 @@
                     const response = await fetch(`/group/api/teams/${encodeURIComponent(league)}`, {
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRFToken': csrfToken
+                            'X-CSRFToken': csrfToken,
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
                         },
                         credentials: 'same-origin'
                     });
 
+                    console.log('Response status:', response.status);
                     const data = await response.json();
-                    console.log('Teams response:', data);
+                    console.log('Raw API response:', data);
 
-                    if (data.status === 'success' && data.teams?.length > 0) {
+                    if (!response.ok) {
+                        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+                    }
+
+                    if (data.status === 'success' && Array.isArray(data.teams) && data.teams.length > 0) {
+                        console.log('Found teams:', data.teams.length);
                         updateTeamsContainer(data.teams);
                     } else {
+                        console.error('Invalid teams data:', data);
                         throw new Error(data.message || 'No teams available for this league');
                     }
                 } catch (error) {
-                    console.error('Error loading teams:', error);
+                    console.error('Error details:', error);
                     teamsContainer.innerHTML = `
                         <div class="col-span-full p-4 text-center text-red-600">
                             Error loading teams. 
@@ -166,23 +175,42 @@
             }
 
             function updateTeamsContainer(teams) {
-                const teamElements = teams.map(team => `
-                    <label class="flex items-center space-x-3 p-4 border rounded hover:bg-[#75E6DA] cursor-pointer">
-                        <input type="checkbox" 
-                               name="tracked_teams" 
-                               value="${team.id}"
-                               class="form-checkbox h-4 w-4 text-[#189AB4]">
-                        <div class="flex items-center">
-                            ${team.logo ? `
-                                <img src="${team.logo}" 
-                                     alt="${team.name} logo" 
-                                     class="w-6 h-6 object-contain mr-2"
-                                     onerror="this.style.display='none'">`
-                             : ''}
-                            <span>${team.name}</span>
-                        </div>
-                    </label>
-                `).join('');
+                console.log('Updating teams container with:', teams);
+                const teamElements = teams.map(team => {
+                    console.log('Processing team:', team);
+                    const teamId = team.id || team.team_id;
+                    const teamName = team.name || team.team_name;
+                    const teamLogo = team.logo || team.team_logo;
+
+                    if (!teamId || !teamName) {
+                        console.error('Invalid team data:', team);
+                        return '';
+                    }
+
+                    return `
+                        <label class="flex items-center space-x-3 p-4 border rounded hover:bg-[#75E6DA] cursor-pointer">
+                            <input type="checkbox" 
+                                   name="tracked_teams" 
+                                   value="${teamId}"
+                                   class="form-checkbox h-4 w-4 text-[#189AB4]">
+                            <div class="flex items-center">
+                                ${teamLogo ? `
+                                    <img src="${teamLogo}" 
+                                         alt="${teamName} logo" 
+                                         class="w-6 h-6 object-contain mr-2"
+                                         onerror="this.style.display='none'">`
+                                 : ''}
+                                <span>${teamName}</span>
+                            </div>
+                        </label>
+                    `;
+                }).filter(Boolean).join('');
+
+                if (!teamElements) {
+                    console.error('No valid team elements generated');
+                    teamsContainer.innerHTML = '<div class="p-4 text-center text-red-600">No valid teams available</div>';
+                    return;
+                }
 
                 teamsContainer.innerHTML = teamElements;
             }
@@ -208,6 +236,7 @@
                     });
 
                     const result = await response.json();
+                    console.log('Form submission response:', result);
                     
                     if (result.status === 'success') {
                         window.location.href = result.redirect_url;
@@ -215,7 +244,7 @@
                         showError(result.message || 'Failed to create group');
                     }
                 } catch (error) {
-                    console.error('Error submitting form:', error);
+                    console.error('Form submission error:', error);
                     showError('An unexpected error occurred. Please try again.');
                 } finally {
                     hideLoading();
