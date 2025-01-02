@@ -45,7 +45,7 @@
                 <div class="form-group">
                     <label class="block text-[#05445E] font-medium mb-2">Select Teams to Track</label>
                     <div id="teamsContainer" class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <!-- Teams will be populated via JavaScript based on league selection -->
+                        <!-- Teams will be populated via JavaScript -->
                     </div>
                 </div>
 
@@ -80,43 +80,129 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/group-creation.js') }}"></script>
-    
+    <!-- Error Message Container -->
+    <div id="errorContainer" class="fixed bottom-4 right-4 z-50 hidden">
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <span id="errorMessage" class="block sm:inline"></span>
+            <span class="absolute top-0 right-0 px-4 py-3">
+                <button type="button" class="close" onclick="this.parentElement.parentElement.parentElement.classList.add('hidden')">
+                    <span class="text-2xl">&times;</span>
+                </button>
+            </span>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white p-4 rounded-lg">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[#189AB4]"></div>
+            <p class="mt-2 text-[#05445E]">Loading...</p>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const form = document.getElementById('createGroupForm');
             const leagueInputs = document.querySelectorAll('input[name="league"]');
             const teamsContainer = document.getElementById('teamsContainer');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const errorContainer = document.getElementById('errorContainer');
+            const errorMessage = document.getElementById('errorMessage');
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
-            // Handle league selection change
-            leagueInputs.forEach(input => {
-                input.addEventListener('change', async (e) => {
-                    const selectedLeague = e.target.value;
-                    try {
-                        const response = await fetch(`/group/api/teams/${encodeURIComponent(selectedLeague)}`);
-                        const data = await response.json();
-                        
-                        if (data.status === 'success') {
-                            updateTeamsContainer(data.teams);
-                        } else {
-                            console.error('Failed to fetch teams:', data.message);
-                        }
-                    } catch (error) {
-                        console.error('Error fetching teams:', error);
+            function showLoading() {
+                loadingIndicator.classList.remove('hidden');
+                loadingIndicator.classList.add('flex');
+            }
+
+            function hideLoading() {
+                loadingIndicator.classList.add('hidden');
+                loadingIndicator.classList.remove('flex');
+            }
+
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorContainer.classList.remove('hidden');
+                setTimeout(() => {
+                    errorContainer.classList.add('hidden');
+                }, 5000);
+            }
+
+            async function loadTeams(league) {
+                showLoading();
+                teamsContainer.innerHTML = '<div class="p-4 text-center">Loading teams...</div>';
+
+                try {
+                    console.log('Fetching teams for:', league);
+                    const response = await fetch(`/group/api/teams/${encodeURIComponent(league)}`, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': csrfToken
+                        },
+                        credentials: 'same-origin'
+                    });
+
+                    const data = await response.json();
+                    console.log('Teams response:', data);
+
+                    if (data.status === 'success' && data.teams?.length > 0) {
+                        updateTeamsContainer(data.teams);
+                    } else {
+                        throw new Error(data.message || 'No teams available for this league');
                     }
-                });
+                } catch (error) {
+                    console.error('Error loading teams:', error);
+                    teamsContainer.innerHTML = `
+                        <div class="col-span-full p-4 text-center text-red-600">
+                            Error loading teams. 
+                            <button onclick="retryLoadTeams('${league}')" class="underline">
+                                Try again
+                            </button>
+                        </div>`;
+                    showError(error.message || 'Failed to load teams');
+                } finally {
+                    hideLoading();
+                }
+            }
+
+            function updateTeamsContainer(teams) {
+                const teamElements = teams.map(team => `
+                    <label class="flex items-center space-x-3 p-4 border rounded hover:bg-[#75E6DA] cursor-pointer">
+                        <input type="checkbox" 
+                               name="tracked_teams" 
+                               value="${team.id}"
+                               class="form-checkbox h-4 w-4 text-[#189AB4]">
+                        <div class="flex items-center">
+                            ${team.logo ? `
+                                <img src="${team.logo}" 
+                                     alt="${team.name} logo" 
+                                     class="w-6 h-6 object-contain mr-2"
+                                     onerror="this.style.display='none'">`
+                             : ''}
+                            <span>${team.name}</span>
+                        </div>
+                    </label>
+                `).join('');
+
+                teamsContainer.innerHTML = teamElements;
+            }
+
+            // League selection handler
+            leagueInputs.forEach(input => {
+                input.addEventListener('change', (e) => loadTeams(e.target.value));
             });
 
-            // Handle form submission
+            // Form submission handler
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                
-                const formData = new FormData(form);
+                showLoading();
+
                 try {
+                    const formData = new FormData(form);
                     const response = await fetch(form.action, {
                         method: 'POST',
                         headers: {
-                            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                            'X-CSRFToken': csrfToken
                         },
                         body: formData
                     });
@@ -126,22 +212,20 @@
                     if (result.status === 'success') {
                         window.location.href = result.redirect_url;
                     } else {
-                        alert(result.message || 'An error occurred while creating the group');
+                        showError(result.message || 'Failed to create group');
                     }
                 } catch (error) {
                     console.error('Error submitting form:', error);
-                    alert('An unexpected error occurred. Please try again.');
+                    showError('An unexpected error occurred. Please try again.');
+                } finally {
+                    hideLoading();
                 }
             });
 
-            function updateTeamsContainer(teams) {
-                teamsContainer.innerHTML = teams.map(team => `
-                    <label class="flex items-center space-x-3 p-4 border rounded hover:bg-[#75E6DA] cursor-pointer">
-                        <input type="checkbox" name="tracked_teams" value="${team.id}">
-                        <span>${team.name}</span>
-                    </label>
-                `).join('');
-            }
+            // Retry loading teams
+            window.retryLoadTeams = function(league) {
+                loadTeams(league);
+            };
         });
     </script>
 </body>

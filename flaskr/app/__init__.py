@@ -18,6 +18,7 @@ sys.path.append(os.path.dirname(SCRIPT_DIR))
 DATABASE_URI = os.environ.get("SQLALCHEMY_DATABASE_URI")
 
 def configure_logging(app):
+    """Configure application logging"""
     if not app.debug:
         log_dir = '/flaskr/logs'
         if not os.path.exists(log_dir):
@@ -44,22 +45,30 @@ def init_services(app):
     """Initialize API services within application context"""
     with app.app_context():
         try:
-            from app.api_client import initialize_services
+            from app.api_client import initialize_services, get_secret
             from app.services.team_service import TeamService
+            from app.services.football_api import FootballAPIService
             from app.models import MatchStatus, GroupPrivacyType, MemberRole, PredictionStatus
             
-            # Register enum convertors for SQLAlchemy
-            db.event.listen(db.session, 'before_flush', lambda session, ctx, instances: None)
+            app.logger.info("Starting API services initialization...")
             
-            # Initialize services
-            football_api, _ = initialize_services()
-            if not football_api:
-                app.logger.error("Failed to initialize FootballAPIService")
-                return
-                
+            # First get the API key
+            api_key = get_secret()
+            if not api_key:
+                app.logger.error("Failed to retrieve API key")
+                raise ValueError("Failed to retrieve API key")
+
+            # Initialize Football API Service
+            app.logger.info("Initializing FootballAPIService...")
+            football_api = FootballAPIService(api_key)
+            app.logger.info("FootballAPIService initialized successfully")
+
+            # Initialize Team Service
+            app.logger.info("Initializing TeamService...")
             team_service = TeamService(football_api)
+            app.logger.info("TeamService initialized successfully")
             
-            # Store in app config for global access
+            # Store services in app config for global access
             app.config['FOOTBALL_API_SERVICE'] = football_api
             app.config['TEAM_SERVICE'] = team_service
             
@@ -82,12 +91,24 @@ def init_services(app):
             app.json_provider_class = CustomJSONProvider
             app.json = CustomJSONProvider(app)
             
-            app.logger.info("API services and enum handlers initialized successfully")
+            # Verify services are properly initialized
+            app.logger.info("Verifying service initialization...")
+            if not app.config.get('TEAM_SERVICE'):
+                app.logger.error("TeamService not found in app config after initialization")
+                raise RuntimeError("TeamService initialization verification failed")
+            
+            if not app.config.get('FOOTBALL_API_SERVICE'):
+                app.logger.error("FootballAPIService not found in app config after initialization")
+                raise RuntimeError("FootballAPIService initialization verification failed")
+
+            app.logger.info("All API services and enum handlers initialized successfully")
+            
         except Exception as e:
-            app.logger.error(f"Failed to initialize API services: {str(e)}")
+            app.logger.error(f"Failed to initialize API services: {str(e)}", exc_info=True)
             raise
 
 def create_app(test_config=None):
+    """Create and configure the Flask application"""
     app = Flask(__name__, instance_relative_config=True)
 
     # Initialize CSRF protection
@@ -99,9 +120,11 @@ def create_app(test_config=None):
     except OSError:
         pass
 
+    # Configure logging
     configure_logging(app)
     app.logger.info('Flaskr startup')
 
+    # Configure application
     app.config.from_mapping(
         SECRET_KEY=os.environ.get('SECRET_KEY', 'dev'),
         SQLALCHEMY_DATABASE_URI=DATABASE_URI,
@@ -126,8 +149,10 @@ def create_app(test_config=None):
     else:
         app.config.from_mapping(test_config)
 
+    # Initialize database
     db.init_app(app)
 
+    # Setup login manager
     login_manager = LoginManager()
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
@@ -137,13 +162,15 @@ def create_app(test_config=None):
         return Users.query.get(int(user_id))
 
     with app.app_context():
+        # Create database tables if needed
         if app.config.get('CREATE_TABLES_ON_STARTUP'):
             db.create_all()
             app.logger.info("Database tables created successfully")
         
-        # Initialize services within app context
+        # Initialize services
         init_services(app)
 
+    # Register routes
     @app.route('/populate-data')
     def populate_data():
         try:
@@ -167,6 +194,13 @@ def create_app(test_config=None):
             # Check database connection
             from sqlalchemy.sql import text
             db.session.execute(text('SELECT 1'))
+            
+            # Check services
+            if not app.config.get('TEAM_SERVICE'):
+                return 'Team Service Unavailable', 503
+            if not app.config.get('FOOTBALL_API_SERVICE'):
+                return 'Football API Service Unavailable', 503
+                
             return 'OK', 200
         except Exception as e:
             app.logger.error(f"Health check failed: {str(e)}")
@@ -184,8 +218,10 @@ def create_app(test_config=None):
         app.register_blueprint(group_bp)
         app.register_blueprint(football_api_bp)
         register_error_handlers(app)
+        
+        app.logger.info("All blueprints registered successfully")
     except ImportError as e:
-        app.logger.error(f"Error importing modules: {str(e)}")
+        app.logger.error(f"Error importing modules: {str(e)}", exc_info=True)
         raise
 
     @app.route('/')

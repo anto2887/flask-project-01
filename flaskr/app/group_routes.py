@@ -155,26 +155,35 @@ def manage_group(group_id):
 def get_league_teams(league):
     """API endpoint to get teams for a specific league"""
     try:
+        current_app.logger.info(f"Fetching teams for league: {league}")
         team_service = current_app.config.get('TEAM_SERVICE')
+        
         if not team_service:
             current_app.logger.error("Team service not initialized")
-            return jsonify({'status': 'error', 'message': 'Service unavailable'}), 500
+            return jsonify({
+                'status': 'error',
+                'message': 'Team service unavailable. Please try again later.'
+            }), 500
 
+        current_app.logger.debug(f"Using team service to fetch teams for: {league}")
         teams = team_service.get_league_teams(league)
-        current_app.logger.debug(f"Teams data structure for {league}: {teams}")
-        current_app.logger.debug(f"Number of teams retrieved: {len(teams) if teams else 0}")
-        if teams and len(teams) > 0:
-            current_app.logger.debug(f"Sample team structure: {teams[0]}")
-        
+        current_app.logger.debug(f"Received teams data: {teams}")
+
         if not teams:
             current_app.logger.warning(f"No teams found for league: {league}")
-            return jsonify({'status': 'error', 'message': 'No teams found for the given league'}), 404
+            return jsonify({
+                'status': 'error',
+                'message': 'No teams available for this league'
+            }), 404
 
-        response_data = {'status': 'success', 'teams': teams}
-        return jsonify(response_data)
+        current_app.logger.info(f"Successfully retrieved {len(teams)} teams for {league}")
+        return jsonify({
+            'status': 'success',
+            'teams': teams
+        })
 
     except Exception as e:
-        current_app.logger.error(f"Error fetching teams: {str(e)}")
+        current_app.logger.error(f"Error fetching teams for {league}: {str(e)}", exc_info=True)
         return jsonify({
             'status': 'error',
             'message': 'Failed to fetch teams'
