@@ -87,7 +87,7 @@ class GroupCreator {
             console.log('Fetching teams for league:', league);
             // Add CSRF token to this request
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-            const response = await fetch(`/api/teams/${encodeURIComponent(league)}`, {
+            const response = await fetch(`/group/api/teams/${encodeURIComponent(league)}`, {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRFToken': csrfToken
