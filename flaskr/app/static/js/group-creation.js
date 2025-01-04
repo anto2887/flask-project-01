@@ -1,20 +1,8 @@
 class GroupCreator {
     constructor() {
-        this.selectedTeams = new Set();
         this.VALID_PRIVACY_TYPES = ['PRIVATE', 'SEMI_PRIVATE'];
-        this.initializeLeagueSelector();
         this.initializeForm();
         console.log('GroupCreator initialized');
-    }
-
-    initializeLeagueSelector() {
-        const leagueInputs = document.querySelectorAll('input[name="league"]');
-        console.log('Found league inputs:', leagueInputs.length);
-        leagueInputs.forEach(input => {
-            input.addEventListener('change', (e) => {
-                this.loadTeams(e.target.value);
-            });
-        });
     }
 
     initializeForm() {
@@ -70,130 +58,15 @@ class GroupCreator {
             return false;
         }
 
-        if (this.selectedTeams.size === 0) {
+        // Check for selected teams from React component
+        const trackedTeams = form.querySelectorAll('input[name="tracked_teams"]');
+        if (trackedTeams.length === 0) {
             this.showError('Please select at least one team to track');
             return false;
         }
 
         console.log('Form validation passed');
         return true;
-    }
-
-    async loadTeams(league) {
-        try {
-            const teamsContainer = document.getElementById('teamsContainer');
-            teamsContainer.innerHTML = '<div class="p-4 text-center">Loading teams...</div>';
-
-            console.log('Fetching teams for league:', league);
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-            const response = await fetch(`/group/api/teams/${encodeURIComponent(league)}`, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': csrfToken
-                },
-                credentials: 'same-origin'
-            });
-            console.log('Response status:', response.status);
-            
-            const data = await response.json();
-            console.log('Response data:', data);
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to fetch teams');
-            }
-
-            // Expect response to have a "teams" key
-            const teams = data.teams || [];
-            if (teams.length === 0) {
-                throw new Error('No teams available for this league');
-            }
-
-            console.log('Teams array:', teams);
-            console.log('Sample team structure:', teams[0]);
-            this.renderTeams(teams);
-            
-        } catch (error) {
-            console.error('Error loading teams:', error);
-            this.showError(error.message || 'Failed to load teams');
-            document.getElementById('teamsContainer').innerHTML = 
-                '<div class="p-4 text-center text-red-600">Error loading teams. Please try again.</div>';
-        }
-    }
-
-    renderTeams(teams) {
-        try {
-            console.log('Starting team rendering, number of teams:', teams.length);
-            const container = document.getElementById('teamsContainer');
-            
-            const teamElements = teams.map(team => {
-                console.log('Processing team:', team);
-                
-                const teamId = team.id;
-                const teamName = team.name || team.team_name;
-                const teamLogo = team.logo || team.team_logo;
-                
-                if (!teamId || !teamName) {
-                    console.error('Invalid team data:', team);
-                    return ''; // Skip invalid teams
-                }
-
-                return `
-                    <div class="team-option flex items-center p-2 border rounded cursor-pointer hover:bg-gray-50" data-team-id="${teamId}">
-                        <img src="${teamLogo}" 
-                             alt="${teamName} logo" 
-                             class="w-12 h-12 object-contain"
-                             onerror="this.style.display='none'">
-                        <span class="ml-2">${teamName}</span>
-                        <input type="checkbox" 
-                               name="tracked_teams" 
-                               value="${teamId}"
-                               class="hidden">
-                    </div>
-                `;
-            }).filter(Boolean).join('');
-
-            container.innerHTML = teamElements || '<div class="p-4 text-center">No teams available</div>';
-
-            container.querySelectorAll('.team-option').forEach(option => {
-                option.addEventListener('click', () => this.toggleTeam(option));
-            });
-            
-            console.log('Team rendering complete');
-        } catch (error) {
-            console.error('Error in renderTeams:', error);
-            throw error;
-        }
-    }
-
-    toggleTeam(element) {
-        try {
-            const teamId = element.dataset.teamId;
-            if (!teamId) {
-                console.error('No team ID found on element:', element);
-                return;
-            }
-
-            const checkbox = element.querySelector('input');
-            if (!checkbox) {
-                console.error('No checkbox found in team element:', element);
-                return;
-            }
-
-            if (this.selectedTeams.has(teamId)) {
-                this.selectedTeams.delete(teamId);
-                element.classList.remove('selected', 'bg-blue-50', 'border-blue-500');
-                checkbox.checked = false;
-            } else {
-                this.selectedTeams.add(teamId);
-                element.classList.add('selected', 'bg-blue-50', 'border-blue-500');
-                checkbox.checked = true;
-            }
-
-            console.log('Selected teams:', Array.from(this.selectedTeams));
-        } catch (error) {
-            console.error('Error in toggleTeam:', error);
-            this.showError('Error selecting team');
-        }
     }
 
     async handleSubmit(e) {
@@ -220,11 +93,7 @@ class GroupCreator {
                 league: formData.get('league'),
                 privacyType: formData.get('privacy_type'),
                 description: formData.get('description'),
-                selectedTeams: Array.from(this.selectedTeams)
-            });
-
-            this.selectedTeams.forEach(teamId => {
-                formData.append('tracked_teams', teamId);
+                trackedTeams: Array.from(formData.getAll('tracked_teams'))
             });
 
             console.log('Sending form data to server...');

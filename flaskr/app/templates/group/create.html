@@ -6,6 +6,11 @@
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>Create Group - PrdiktIt</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <!-- Add React and ReactDOM Scripts -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
 </head>
 <body class="bg-[#D4F1F4]">
     <div class="container mx-auto px-4 py-8">
@@ -44,9 +49,7 @@
 
                 <div class="form-group">
                     <label class="block text-[#05445E] font-medium mb-2">Select Teams to Track</label>
-                    <div id="teamsContainer" class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <!-- Teams will be populated via JavaScript -->
-                    </div>
+                    <div id="react-team-selector"></div>
                 </div>
 
                 <div class="form-group">
@@ -100,6 +103,14 @@
         </div>
     </div>
 
+    <!-- Load React component -->
+    <script type="text/babel" src="{{ url_for('static', filename='js/components/TeamSelector.jsx') }}"></script>
+    <script type="text/babel">
+        // Initialize React component
+        ReactDOM.createRoot(document.getElementById('react-team-selector')).render(<TeamSelector />);
+    </script>
+
+    <!-- Load existing JS -->
     <script src="{{ url_for('static', filename='js/group-creation.js') }}"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@ import sys
 import logging
 from logging.handlers import RotatingFileHandler
 
-from flask import Flask, current_app, render_template, redirect, url_for
+from flask import Flask, current_app, render_template, redirect, url_for, send_from_directory
 from flask_login import LoginManager, current_user
 from flask_wtf.csrf import CSRFProtect
 from sqlalchemy import create_engine
@@ -141,7 +141,9 @@ def create_app(test_config=None):
         # CSRF settings
         WTF_CSRF_ENABLED=True,
         WTF_CSRF_CHECK_DEFAULT=True,
-        WTF_CSRF_TIME_LIMIT=3600  # 1 hour token expiration
+        WTF_CSRF_TIME_LIMIT=3600,  # 1 hour token expiration
+        # React configuration
+        REACT_COMPONENTS_PATH=os.path.join(app.static_folder, 'js', 'components')
     )
 
     if test_config is None:
@@ -160,6 +162,11 @@ def create_app(test_config=None):
     @login_manager.user_loader
     def load_user(user_id):
         return Users.query.get(int(user_id))
+
+    # Add React component handler
+    @app.route('/static/js/components/<path:filename>')
+    def serve_react_component(filename):
+        return send_from_directory(app.config['REACT_COMPONENTS_PATH'], filename)
 
     with app.app_context():
         # Create database tables if needed
