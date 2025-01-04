@@ -106,8 +106,9 @@
     <!-- Load React component -->
     <script type="text/babel" src="{{ url_for('static', filename='js/components/TeamSelector.jsx') }}"></script>
     <script type="text/babel">
-        // Initialize React component
-        ReactDOM.createRoot(document.getElementById('react-team-selector')).render(<TeamSelector />);
+        const container = document.getElementById('react-team-selector');
+        const root = ReactDOM.createRoot(container);
+        root.render(React.createElement(TeamSelector));
     </script>
 
     <!-- Load existing JS -->
