@@ -18,10 +18,13 @@ class AnalyticsService:
     def generate_group_analytics(self, group_id: int) -> Dict:
         """Generate comprehensive analytics for a group."""
         try:
-            cache_key = f"group_analytics:{group_id}"
-            cached_data = self.cache.get(cache_key)
-            if cached_data:
-                return cached_data
+            try:
+                cache_key = f"group_analytics:{group_id}"
+                cached_data = self.cache.get(cache_key)
+                if cached_data:
+                    return cached_data
+            except Exception as cache_error:
+                current_app.logger.warning(f"Cache retrieval failed: {str(cache_error)}")
 
             analytics = {
                 'overall_stats': self._get_overall_stats(group_id),
@@ -34,14 +37,24 @@ class AnalyticsService:
             # Store in database for historical tracking
             self._store_analytics(group_id, analytics)
             
-            # Cache for future requests
-            self.cache.set(cache_key, analytics, timeout=3600)  # 1 hour cache
+            # Try to cache, but don't fail if cache is unavailable
+            try:
+                self.cache.set(cache_key, analytics, timeout=3600)  # 1 hour cache
+            except Exception as cache_error:
+                current_app.logger.warning(f"Cache storage failed: {str(cache_error)}")
             
             return analytics
 
         except Exception as e:
             current_app.logger.error(f"Error generating group analytics: {str(e)}")
-            return None
+            return {
+                'overall_stats': {},
+                'member_performance': [],
+                'prediction_patterns': {},
+                'weekly_trends': [],
+                'generated_at': datetime.now(timezone.utc).isoformat(),
+                'error': 'Error generating analytics'
+            }
 
     def _get_overall_stats(self, group_id: int) -> Dict:
         """Get overall group statistics."""
@@ -89,7 +102,7 @@ class AnalyticsService:
                 func.count(UserPredictions.id).label('total_predictions'),
                 func.sum(UserPredictions.points).label('total_points'),
                 func.avg(UserPredictions.points).label('average_points'),
-                func.sum(case([(UserPredictions.points == 3, 1)], else_=0)).label('perfect_predictions')
+                func.sum(case(whens=[(UserPredictions.points == 3, 1)], else_=0)).label('perfect_predictions')
             ).join(
                 UserPredictions, Users.id == UserPredictions.author_id
             ).join(
@@ -118,7 +131,6 @@ class AnalyticsService:
         try:
             group = Group.query.get(group_id)
             
-            # Get all processed predictions
             predictions = UserPredictions.query.join(
                 Fixture
             ).filter(
@@ -144,7 +156,6 @@ class AnalyticsService:
         try:
             group = Group.query.get(group_id)
             
-            # Get last 10 weeks of data
             weeks = db.session.query(
                 UserPredictions.week
             ).join(
@@ -225,7 +236,7 @@ class AnalyticsService:
                               if p.score1 > p.score2 and p.points > 0)
 
         return {
-            'rate': round(home_wins_predicted / total * 100, 2),
+            'rate': round(home_wins_predicted / total * 100, 2) if total else 0,
             'accuracy': round(home_wins_correct / home_wins_predicted * 100, 2) if home_wins_predicted else 0
         }
 
@@ -259,10 +270,9 @@ class AnalyticsService:
                 if pred.points > 0:
                     team_stats[team]['correct'] += 1
 
-        # Calculate success rates and sort
         return {
             team: {
-                'success_rate': round(stats['correct'] / stats['total'] * 100, 2),
+                'success_rate': round(stats['correct'] / stats['total'] * 100, 2) if stats['total'] else 0,
                 'predictions': stats['total']
             }
             for team, stats in team_stats.items()
@@ -277,11 +287,11 @@ class AnalyticsService:
         }
 
         for pred in predictions:
+            if not pred.submission_time:
+                continue
+                
             fixture_time = pred.fixture.date
             submission_time = pred.submission_time
-            if not submission_time:
-                continue
-
             hours_before = (fixture_time - submission_time).total_seconds() / 3600
             
             if hours_before > 24:
@@ -295,7 +305,6 @@ class AnalyticsService:
             if pred.points > 0:
                 time_brackets[bracket]['correct'] += 1
 
-        # Calculate accuracy rates
         return {
             bracket: {
                 'accuracy': round(stats['correct'] / stats['count'] * 100, 2) if stats['count'] else 0,
@@ -330,7 +339,7 @@ class AnalyticsService:
 
             return {
                 'average_points': round(total_points / len(predictions), 2),
-                'participation': round(participants / len(group.users) * 100, 2),
+                'participation': round(participants / len(group.users) * 100, 2) if len(group.users) > 0 else 0,
                 'perfect_predictions': perfect_predictions
             }
 
