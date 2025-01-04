@@ -92,13 +92,11 @@ const TeamSelector = () => {
     };
 
     if (loading) {
-        return (
-            React.createElement('div', { className: 'p-4 text-center' },
-                React.createElement('div', { 
-                    className: 'animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto'
-                }),
-                React.createElement('p', { className: 'mt-2' }, 'Loading teams...')
-            )
+        return React.createElement('div', { className: 'p-4 text-center' },
+            React.createElement('div', { 
+                className: 'animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto'
+            }),
+            React.createElement('p', { className: 'mt-2' }, 'Loading teams...')
         );
     }
 
@@ -118,6 +116,14 @@ const TeamSelector = () => {
                 selectedTeams.has(team.id) ? 'bg-blue-50 border-blue-500' : ''
             }`
         }, [
+            React.createElement('input', {
+                key: 'checkbox',
+                type: 'checkbox',
+                className: 'mr-2',
+                checked: selectedTeams.has(team.id),
+                onChange: () => toggleTeam(team.id),
+                onClick: (e) => e.stopPropagation(), // Prevent double-toggle from parent click
+            }),
             React.createElement('img', {
                 key: 'img',
                 src: team.logo,
