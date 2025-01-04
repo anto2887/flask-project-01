@@ -28,6 +28,50 @@ class GroupService:
                 return code
 
     @staticmethod
+    def get_group_members(group_id: int) -> List[Dict]:
+        """Get all members of a group with their roles"""
+        try:
+            members = (GroupMember.query
+                      .join(Users, Users.id == GroupMember.user_id)
+                      .filter(GroupMember.group_id == group_id)
+                      .order_by(GroupMember.role.desc(), Users.username)
+                      .all())
+            
+            return [{
+                'user_id': member.user_id,
+                'username': member.user.username,
+                'role': member.role,
+                'joined_at': member.joined_at,
+                'last_active': member.last_active
+            } for member in members]
+        except Exception as e:
+            current_app.logger.error(f"Error getting group members: {str(e)}")
+            return []
+
+    @staticmethod
+    def get_pending_requests(group_id: int) -> List[Dict]:
+        """Get all pending join requests for a group"""
+        try:
+            requests = (PendingMembership.query
+                       .join(Users, Users.id == PendingMembership.user_id)
+                       .filter(
+                           PendingMembership.group_id == group_id,
+                           PendingMembership.status == MembershipStatus.PENDING
+                       )
+                       .order_by(PendingMembership.requested_at)
+                       .all())
+            
+            return [{
+                'request_id': req.id,
+                'user_id': req.user_id,
+                'username': req.user.username,
+                'requested_at': req.requested_at
+            } for req in requests]
+        except Exception as e:
+            current_app.logger.error(f"Error getting pending requests: {str(e)}")
+            return []
+
+    @staticmethod
     def create_group(
         name: str,
         league: str,
@@ -324,3 +368,20 @@ class GroupService:
             db.session.rollback()
             current_app.logger.error(f"Error in bulk member action: {str(e)}")
             return False, "An error occurred during the operation", {"successful": [], "failed": user_ids}
+
+    @staticmethod
+    def regenerate_invite_code(group_id: int) -> Optional[str]:
+        """Regenerate invite code for a group"""
+        try:
+            group = Group.query.get(group_id)
+            if not group:
+                return None
+
+            new_code = GroupService.generate_invite_code()
+            group.invite_code = new_code
+            db.session.commit()
+            return new_code
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error regenerating invite code: {str(e)}")
+            return None
