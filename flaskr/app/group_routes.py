@@ -4,7 +4,8 @@ from flask_wtf.csrf import generate_csrf
 from app.services.group_service import GroupService
 from app.services.permission_service import PermissionService
 from app.services.analytics_service import AnalyticsService
-from app.models import Group, GroupMember, MemberRole, GroupPrivacyType
+from app.models import Group, GroupMember, MemberRole, GroupPrivacyType, Team, Fixture
+from app.db import db
 
 group_bp = Blueprint('group', __name__, url_prefix='/group')
 
@@ -156,18 +157,19 @@ def get_league_teams(league):
     """API endpoint to get teams for a specific league"""
     try:
         current_app.logger.info(f"Fetching teams for league: {league}")
-        team_service = current_app.config.get('TEAM_SERVICE')
         
-        if not team_service:
-            current_app.logger.error("Team service not initialized")
-            return jsonify({
-                'status': 'error',
-                'message': 'Team service unavailable. Please try again later.'
-            }), 500
-
-        current_app.logger.debug(f"Using team service to fetch teams for: {league}")
-        teams = team_service.get_league_teams(league)
-        current_app.logger.debug(f"Raw teams data received: {teams}")
+        # Query teams directly from the database
+        teams = db.session.query(Team).filter(
+            Team.team_name.in_(
+                db.session.query(Fixture.home_team)
+                .filter(Fixture.league == league)
+                .union(
+                    db.session.query(Fixture.away_team)
+                    .filter(Fixture.league == league)
+                )
+                .distinct()
+            )
+        ).all()
 
         if not teams:
             current_app.logger.warning(f"No teams found for league: {league}")
@@ -178,13 +180,12 @@ def get_league_teams(league):
 
         # Transform data to ensure it matches expected format
         formatted_teams = [{
-            'id': team.get('id'),
-            'name': team.get('name'),
-            'logo': team.get('logo'),
-            'venue': team.get('venue')
+            'id': team.id,
+            'name': team.team_name,
+            'logo': team.team_logo
         } for team in teams]
 
-        current_app.logger.info(f"Successfully processed {len(formatted_teams)} teams for {league}")
+        current_app.logger.info(f"Successfully found {len(formatted_teams)} teams for {league}")
         return jsonify({
             'status': 'success',
             'teams': formatted_teams

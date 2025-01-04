@@ -22,18 +22,20 @@ const TeamSelector = () => {
                 credentials: 'same-origin'
             });
 
+            const data = await response.json();
+
             if (!response.ok) {
-                throw new Error('Failed to fetch teams');
+                throw new Error(data.message || 'Failed to fetch teams');
             }
 
-            const data = await response.json();
             if (data.status === 'success' && Array.isArray(data.teams)) {
                 setTeams(data.teams);
             } else {
-                throw new Error('Invalid response format');
+                throw new Error(data.message || 'Invalid response format');
             }
         } catch (err) {
-            setError(err.message);
+            console.error('Error loading teams:', err);
+            setError(err.message || 'Failed to load teams');
             setTeams([]);
         } finally {
             setLoading(false);
