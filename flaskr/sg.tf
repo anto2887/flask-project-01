@@ -92,7 +92,7 @@ resource "aws_security_group" "flaskr_bastion_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["83.136.182.244/32"]  # Replace with your IP
+    cidr_blocks = ["83.136.182.109/64"]  # Replace with your IP
   }
 
   egress {
