@@ -5,7 +5,8 @@ from botocore.exceptions import ClientError
 from flask import current_app
 from app.services.football_api import FootballAPIService
 from app.services.score_processing import ScoreProcessingService
-from app.models import db, Fixture
+from app.models import db, Fixture, Team
+from app.db import get_teams_from_fixtures
 from datetime import datetime, timezone
 
 def get_secret():
@@ -56,7 +57,7 @@ def initialize_services():
         raise
 
 def populate_initial_data():
-    """Populate initial fixture data with enhanced error handling"""
+    """Populate initial fixture and team data with enhanced error handling."""
     current_app.logger.info("Starting initial data population")
     
     try:
@@ -91,6 +92,7 @@ def populate_initial_data():
             "Live": "LIVE"
         }
 
+        # Step 1: Populate fixtures table
         for league_name, league_id in leagues.items():
             try:
                 current_app.logger.info(f"Processing league: {league_name} for season {season}")
@@ -139,17 +141,6 @@ def populate_initial_data():
                                 last_checked=datetime.utcnow()
                             )
                             
-                            # Add additional scores if available
-                            if 'score' in fixture_data:
-                                if 'halftime' in fixture_data['score']:
-                                    new_fixture.halftime_score = f"{fixture_data['score']['halftime']['home']}-{fixture_data['score']['halftime']['away']}"
-                                if 'fulltime' in fixture_data['score']:
-                                    new_fixture.fulltime_score = f"{fixture_data['score']['fulltime']['home']}-{fixture_data['score']['fulltime']['away']}"
-                                if 'extratime' in fixture_data['score']:
-                                    new_fixture.extratime_score = f"{fixture_data['score']['extratime']['home']}-{fixture_data['score']['extratime']['away']}"
-                                if 'penalty' in fixture_data['score']:
-                                    new_fixture.penalty_score = f"{fixture_data['score']['penalty']['home']}-{fixture_data['score']['penalty']['away']}"
-                            
                             db.session.add(new_fixture)
                             current_app.logger.info(f"Added new fixture: {new_fixture.home_team} vs {new_fixture.away_team}")
                         else:
@@ -158,17 +149,6 @@ def populate_initial_data():
                             existing_fixture.home_score = fixture_data['goals']['home'] if fixture_data['goals']['home'] is not None else existing_fixture.home_score
                             existing_fixture.away_score = fixture_data['goals']['away'] if fixture_data['goals']['away'] is not None else existing_fixture.away_score
                             existing_fixture.last_checked = datetime.utcnow()
-                            
-                            # Update additional scores
-                            if 'score' in fixture_data:
-                                if 'halftime' in fixture_data['score']:
-                                    existing_fixture.halftime_score = f"{fixture_data['score']['halftime']['home']}-{fixture_data['score']['halftime']['away']}"
-                                if 'fulltime' in fixture_data['score']:
-                                    existing_fixture.fulltime_score = f"{fixture_data['score']['fulltime']['home']}-{fixture_data['score']['fulltime']['away']}"
-                                if 'extratime' in fixture_data['score']:
-                                    existing_fixture.extratime_score = f"{fixture_data['score']['extratime']['home']}-{fixture_data['score']['extratime']['away']}"
-                                if 'penalty' in fixture_data['score']:
-                                    existing_fixture.penalty_score = f"{fixture_data['score']['penalty']['home']}-{fixture_data['score']['penalty']['away']}"
                             
                             current_app.logger.info(f"Updated existing fixture: {existing_fixture.home_team} vs {existing_fixture.away_team}")
                         
@@ -185,7 +165,24 @@ def populate_initial_data():
                 current_app.logger.error(f"Error processing league {league_name}: {str(e)}")
                 time.sleep(1)  # Longer delay on league processing error
                 continue
-                
+
+        # Step 2: Populate teams table
+        current_app.logger.info("Populating teams from fixtures...")
+        teams = get_teams_from_fixtures()  # Extract unique teams from fixtures
+        if teams:
+            for team in teams:
+                existing_team = Team.query.filter_by(team_name=team['team']).first()
+                if not existing_team:
+                    new_team = Team(
+                        team_name=team['team'],
+                        team_logo=team['logo']
+                    )
+                    db.session.add(new_team)
+            db.session.commit()
+            current_app.logger.info(f"Populated {len(teams)} teams into the teams table.")
+        else:
+            current_app.logger.warning("No teams extracted from fixtures.")
+
         current_app.logger.info("Completed initial data population")
         
     except Exception as e:
