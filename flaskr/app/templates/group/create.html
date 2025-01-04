@@ -105,10 +105,9 @@
 
     <!-- Load React component -->
     <script type="text/babel" src="{{ url_for('static', filename='js/components/TeamSelector.jsx') }}"></script>
+    <script type="text/babel" src="{{ url_for('static', filename='js/components/GroupForm.jsx') }}"></script>
     <script type="text/babel">
-        const container = document.getElementById('react-team-selector');
-        const root = ReactDOM.createRoot(container);
-        root.render(React.createElement(TeamSelector));
+        ReactDOM.createRoot(document.getElementById('react-group-form')).render(React.createElement(GroupForm));
     </script>
 
     <!-- Load existing JS -->
