@@ -1,5 +1,4 @@
-// Remove export and declare as global variable
-const TeamSelector = () => {
+window.TeamSelector = () => {
     const [teams, setTeams] = React.useState([]);
     const [selectedTeams, setSelectedTeams] = React.useState(new Set());
     const [loading, setLoading] = React.useState(false);

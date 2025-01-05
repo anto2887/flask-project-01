@@ -1,5 +1,4 @@
-// Remove export and declare as global variable
-const GroupForm = () => {
+window.GroupForm = () => {
     const [formData, setFormData] = React.useState({
         name: '',
         league: '',
@@ -134,7 +133,7 @@ const GroupForm = () => {
                 key: 'team-label',
                 className: 'block text-[#05445E] font-medium mb-2'
             }, 'Select Teams to Track'),
-            React.createElement(TeamSelector, { key: 'team-selector' })
+            React.createElement(window.TeamSelector, { key: 'team-selector' })
         ]),
 
         // Privacy Selection
