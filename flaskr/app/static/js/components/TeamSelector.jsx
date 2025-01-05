@@ -1,3 +1,4 @@
+// Remove export and declare as global variable
 const TeamSelector = () => {
     const [teams, setTeams] = React.useState([]);
     const [selectedTeams, setSelectedTeams] = React.useState(new Set());
@@ -122,7 +123,7 @@ const TeamSelector = () => {
                 className: 'mr-2',
                 checked: selectedTeams.has(team.id),
                 onChange: () => toggleTeam(team.id),
-                onClick: (e) => e.stopPropagation(), // Prevent double-toggle from parent click
+                onClick: (e) => e.stopPropagation()
             }),
             React.createElement('img', {
                 key: 'img',

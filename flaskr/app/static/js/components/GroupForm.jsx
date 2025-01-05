@@ -1,3 +1,4 @@
+// Remove export and declare as global variable
 const GroupForm = () => {
     const [formData, setFormData] = React.useState({
         name: '',

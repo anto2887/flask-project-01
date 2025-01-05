@@ -41,9 +41,9 @@
         </div>
     </div>
 
-    <!-- Load React components -->
-    <script type="text/babel" src="{{ url_for('static', filename='js/components/TeamSelector.jsx') }}"></script>
-    <script type="text/babel" src="{{ url_for('static', filename='js/components/GroupForm.jsx') }}"></script>
+    <!-- Load React components with type="module" -->
+    <script type="text/babel" data-type="module" src="{{ url_for('static', filename='js/components/TeamSelector.jsx') }}"></script>
+    <script type="text/babel" data-type="module" src="{{ url_for('static', filename='js/components/GroupForm.jsx') }}"></script>
     <script type="text/babel">
         // Wait for DOM content to load
         document.addEventListener('DOMContentLoaded', function() {
