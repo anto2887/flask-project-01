@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Create Group - PrdiktIt</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     
-    <!-- Add React and ReactDOM Scripts -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <!-- Add React Scripts -->
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.12.4/babel.min.js"></script>
 </head>
 <body class="bg-[#D4F1F4]">
     <div class="container mx-auto px-4 py-8">
@@ -45,7 +45,15 @@
     <script type="text/babel" src="{{ url_for('static', filename='js/components/TeamSelector.jsx') }}"></script>
     <script type="text/babel" src="{{ url_for('static', filename='js/components/GroupForm.jsx') }}"></script>
     <script type="text/babel">
-        ReactDOM.createRoot(document.getElementById('react-group-form')).render(React.createElement(GroupForm));
+        // Wait for DOM content to load
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('react-group-form');
+            if (container) {
+                ReactDOM.render(React.createElement(GroupForm), container);
+            } else {
+                console.error('React mount point not found');
+            }
+        });
     </script>
 </body>
 </html>

@@ -8,6 +8,11 @@ const GroupForm = () => {
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState(null);
 
+    const getCsrfToken = () => {
+        const metaTag = document.querySelector('meta[name="csrf-token"]');
+        return metaTag ? metaTag.content : '';
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({
@@ -22,10 +27,8 @@ const GroupForm = () => {
         setLoading(true);
 
         try {
-            // Get form data including hidden tracked_teams inputs
             const formDataToSend = new FormData(e.target);
-            const metaTag = document.querySelector('meta[name="csrf-token"]');
-            const csrfToken = metaTag ? metaTag.content : '';
+            const csrfToken = getCsrfToken();
 
             const response = await fetch('/group/create', {
                 method: 'POST',
@@ -40,14 +43,12 @@ const GroupForm = () => {
             const data = await response.json();
 
             if (response.ok && data.status === 'success') {
-                // Redirect using window.location
                 window.location.href = data.redirect_url;
             } else {
                 throw new Error(data.message || 'Failed to create group');
             }
         } catch (err) {
             setError(err.message);
-            // Show error in the UI
             const errorContainer = document.getElementById('errorContainer');
             if (errorContainer) {
                 errorContainer.classList.remove('hidden');
@@ -55,7 +56,6 @@ const GroupForm = () => {
                 if (errorMessage) {
                     errorMessage.textContent = err.message;
                 }
-                // Hide error after 5 seconds
                 setTimeout(() => {
                     errorContainer.classList.add('hidden');
                 }, 5000);
@@ -75,7 +75,7 @@ const GroupForm = () => {
             key: 'csrf',
             type: 'hidden',
             name: 'csrf_token',
-            value: document.querySelector('meta[name="csrf-token"]')?.content || ''
+            value: getCsrfToken()
         }),
 
         // Group Name
