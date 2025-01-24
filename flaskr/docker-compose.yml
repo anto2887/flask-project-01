@@ -1,8 +1,19 @@
 version: '3'
 
 services:
-  web:
-    build: .  # Dockerfile in the current directory
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    volumes:
+      - frontend_data:/usr/share/nginx/html
+
+  backend:
+    build: .
     environment:
       - FLASK_ENV=development
       - SQLALCHEMY_DATABASE_URI=postgresql://username:password@db:5432/mydatabase
@@ -11,12 +22,12 @@ services:
     depends_on:
       - db
     volumes:
-      - web_data:/app/data  # using a docker volume for the web service
-      - ./logs:/flaskr/logs # Mount a host directory to the container for logs
+      - web_data:/app/data
+      - ./logs:/flaskr/logs
     command: ["/usr/local/bin/wait-for-it.sh", "db:5432", "--", "/flaskr/entrypoint.sh"]
 
   db:
-    image: postgres:13  # Pinning the PostgreSQL version
+    image: postgres:13
     environment:
       - POSTGRES_USER=username
       - POSTGRES_PASSWORD=password
@@ -27,3 +38,4 @@ services:
 volumes:
   postgres_data:
   web_data:
+  frontend_data:

@@ -1,7 +1,39 @@
 [
   {
+    "name": "frontend-app",
+    "image": "${frontend_image}",
+    "essential": true,
+    "portMappings": [
+      {
+        "containerPort": 80,
+        "hostPort": 80,
+        "protocol": "tcp"
+      }
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "${awslogs_group}",
+        "awslogs-region": "${awslogs_region}",
+        "awslogs-stream-prefix": "frontend"
+      }
+    },
+    "healthCheck": {
+      "command": [
+        "CMD-SHELL",
+        "curl -f http://localhost:80/health || exit 1"
+      ],
+      "interval": 30,
+      "timeout": 5,
+      "retries": 3,
+      "startPeriod": 60
+    },
+    "memory": 256,
+    "cpu": 256
+  },
+  {
     "name": "flaskr-app",
-    "image": "${image}",
+    "image": "${backend_image}",
     "essential": true,
     "portMappings": [
       {
@@ -15,7 +47,7 @@
       "options": {
         "awslogs-group": "${awslogs_group}",
         "awslogs-region": "${awslogs_region}",
-        "awslogs-stream-prefix": "${awslogs_stream_prefix}"
+        "awslogs-stream-prefix": "backend"
       }
     },
     "environment": [

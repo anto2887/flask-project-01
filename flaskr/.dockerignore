@@ -47,3 +47,6 @@ README.md
 # Application specific
 *.json
 *.csv
+frontend/node_modules
+node_modules
+npm-debug.log
