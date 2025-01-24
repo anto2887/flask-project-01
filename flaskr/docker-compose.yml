@@ -1,41 +1,37 @@
 version: '3'
 
 services:
-  frontend:
-    build: 
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
-    volumes:
-      - frontend_data:/usr/share/nginx/html
+ frontend:
+   build: 
+     context: ./frontend
+     dockerfile: Dockerfile
+   ports:
+     - "3000:80"
+   depends_on:
+     - backend
 
-  backend:
-    build: .
-    environment:
-      - FLASK_ENV=development
-      - SQLALCHEMY_DATABASE_URI=postgresql://username:password@db:5432/mydatabase
-    ports:
-      - "5000:5000"
-    depends_on:
-      - db
-    volumes:
-      - web_data:/app/data
-      - ./logs:/flaskr/logs
-    command: ["/usr/local/bin/wait-for-it.sh", "db:5432", "--", "/flaskr/entrypoint.sh"]
+ backend:
+   build: 
+     context: ./backend
+     dockerfile: Dockerfile
+   environment:
+     - FLASK_ENV=development
+     - SQLALCHEMY_DATABASE_URI=postgresql://username:password@db:5432/mydatabase
+   ports:
+     - "5000:5000"
+   depends_on:
+     - db
+   volumes:
+     - ./logs:/flaskr/logs
 
-  db:
-    image: postgres:13
-    environment:
-      - POSTGRES_USER=username
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=mydatabase
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+ db:
+   image: postgres:13
+   environment:
+     - POSTGRES_USER=username
+     - POSTGRES_PASSWORD=password
+     - POSTGRES_DB=mydatabase
+   volumes:
+     - postgres_data:/var/lib/postgresql/data
 
 volumes:
-  postgres_data:
-  web_data:
-  frontend_data:
+ postgres_data:
