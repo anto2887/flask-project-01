@@ -14,6 +14,24 @@ module.exports = {
         test: /\.(js|jsx)$/,
         exclude: /node_modules/,
         use: ['babel-loader']
+      },
+      {
+        test: /\.css$/,
+        use: [
+          'style-loader',
+          {
+            loader: 'css-loader',
+            options: {
+              importLoaders: 1,
+              sourceMap: true
+            }
+          }
+        ]
+      },
+      // For images and other assets
+      {
+        test: /\.(png|svg|jpg|jpeg|gif)$/i,
+        type: 'asset/resource'
       }
     ]
   },
@@ -26,6 +44,11 @@ module.exports = {
     extensions: ['.js', '.jsx']
   },
   devServer: {
-    historyApiFallback: true
+    historyApiFallback: true,
+    hot: true,
+    port: 3000,
+    static: {
+      directory: path.join(__dirname, 'public')
+    }
   }
 };
