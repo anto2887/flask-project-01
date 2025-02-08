@@ -74,4 +74,4 @@ config.py
 .pytest_cache/
 
 # Node modules dir
-**/frontend/node_modeules
+**/frontend/node_modules
