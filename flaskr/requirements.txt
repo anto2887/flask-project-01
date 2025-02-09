@@ -31,6 +31,7 @@ rapidfuzz==3.5.2
 redis==5.0.0
 requests==2.31.0
 six==1.16.0
+SQLAlchemy>=1.4.36
 tenacity>=8.2.2
 tzdata==2023.3
 tzlocal==5.2
