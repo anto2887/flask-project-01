@@ -1,21 +1,27 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { joinGroup } from '../../api/groups';
 
 export const JoinGroup = () => {
   const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
+
     try {
-      const response = await axios.post('/group/join', { invite_code: inviteCode });
-      if (response.data.success) {
+      const response = await joinGroup(inviteCode);
+      if (response.status === 'success') {
         navigate('/dashboard');
       }
     } catch (error) {
-      setError(error.response?.data?.message || 'Failed to join group');
+      setError(error.message || 'Failed to join group');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -35,12 +41,19 @@ export const JoinGroup = () => {
               onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
               className="w-full p-3 border rounded text-center uppercase tracking-wider"
               placeholder="XXXX-0000"
-              pattern="[A-Z]{4}-[0-9]{4}"
+              pattern="[A-Z0-9]{8}"
               required
+              disabled={loading}
             />
           </div>
-          <button type="submit" className="w-full bg-[#189AB4] text-white px-6 py-3 rounded hover:bg-[#05445E]">
-            Join Group
+          <button 
+            type="submit" 
+            className={`w-full bg-[#189AB4] text-white px-6 py-3 rounded hover:bg-[#05445E] ${
+              loading ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            disabled={loading}
+          >
+            {loading ? 'Joining...' : 'Join Group'}
           </button>
         </form>
         {error && (

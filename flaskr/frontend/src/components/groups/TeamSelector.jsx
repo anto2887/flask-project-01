@@ -1,56 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { getLeagueTeams } from '../../api/matches';
 
-export const TeamSelector = () => {
+export const TeamSelector = ({ selectedLeague, onTeamsSelected }) => {
    const [teams, setTeams] = useState([]);
    const [selectedTeams, setSelectedTeams] = useState(new Set());
    const [loading, setLoading] = useState(false);
    const [error, setError] = useState(null);
 
-   const loadTeams = async (league) => {
-       if (!league) return;
-       setLoading(true);
-       setError(null);
-       
-       try {
-           const response = await axios.get(`/api/teams/${encodeURIComponent(league)}`, {
-               headers: {
-                   'X-Requested-With': 'XMLHttpRequest',
-                   'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
-               },
-               withCredentials: true
-           });
-
-           if (response.data.status === 'success' && Array.isArray(response.data.teams)) {
-               setTeams(response.data.teams);
-           }
-       } catch (err) {
-           console.error('Error loading teams:', err);
-           setError(err.response?.data?.message || 'Failed to load teams');
-           setTeams([]);
-       } finally {
-           setLoading(false);
-       }
-   };
-
    useEffect(() => {
-       const handleLeagueChange = (e) => {
-           if (e.target.checked) {
-               loadTeams(e.target.value);
+       const loadTeams = async () => {
+           if (!selectedLeague) return;
+           setLoading(true);
+           setError(null);
+           
+           try {
+               const response = await getLeagueTeams(selectedLeague);
+               if (response.status === 'success' && Array.isArray(response.data)) {
+                   setTeams(response.data);
+               }
+           } catch (err) {
+               console.error('Error loading teams:', err);
+               setError(err.message || 'Failed to load teams');
+               setTeams([]);
+           } finally {
+               setLoading(false);
            }
        };
 
-       const leagueInputs = document.querySelectorAll('input[name="league"]');
-       leagueInputs.forEach(input => {
-           input.addEventListener('change', handleLeagueChange);
-       });
-
-       return () => {
-           leagueInputs.forEach(input => {
-               input.removeEventListener('change', handleLeagueChange);
-           });
-       };
-   }, []);
+       loadTeams();
+   }, [selectedLeague]);
 
    const toggleTeam = (teamId) => {
        setSelectedTeams(prev => {
@@ -60,19 +38,10 @@ export const TeamSelector = () => {
            } else {
                newSet.add(teamId);
            }
-
-           const form = document.getElementById('createGroupForm');
-           if (form) {
-               const existingInputs = form.querySelectorAll('input[name="tracked_teams"]');
-               existingInputs.forEach(input => input.remove());
-               
-               newSet.forEach(id => {
-                   const input = document.createElement('input');
-                   input.type = 'hidden';
-                   input.name = 'tracked_teams';
-                   input.value = id;
-                   form.appendChild(input);
-               });
+           
+           // Notify parent component of selected teams
+           if (onTeamsSelected) {
+               onTeamsSelected(Array.from(newSet));
            }
 
            return newSet;
@@ -125,5 +94,3 @@ export const TeamSelector = () => {
        </div>
    );
 };
-
-export default TeamSelector;

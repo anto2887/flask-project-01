@@ -1,27 +1,24 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { register } from '../../api/auth';
 
 export const Register = () => {
   const [formData, setFormData] = useState({
     username: '',
     password: ''
   });
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('/auth/register', formData, {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
-        }
-      });
-      if (response.data.success) {
+      const response = await register(formData.username, formData.password);
+      if (response.status === 'success') {
         navigate('/login');
       }
     } catch (error) {
+      setError(error.message || 'Registration failed');
       console.error('Registration failed:', error);
     }
   };
@@ -30,6 +27,11 @@ export const Register = () => {
     <div className="register-container">
       <img src="/static/pictures/soccer-ball.png" alt="Soccer Ball" />
       <h1>PrdiktIt - Register</h1>
+      {error && (
+        <div className="error-message">
+          {error}
+        </div>
+      )}
       <form onSubmit={handleSubmit}>
         <label htmlFor="username">Username</label>
         <input

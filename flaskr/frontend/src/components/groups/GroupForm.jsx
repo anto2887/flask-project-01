@@ -1,21 +1,19 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { TeamSelector } from './TeamSelector';
-import axios from 'axios';
+import { createGroup } from '../../api/groups';
 
 export const GroupForm = () => {
     const [formData, setFormData] = useState({
         name: '',
         league: '',
         privacy_type: 'PRIVATE',
-        description: ''
+        description: '',
+        tracked_teams: []
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-
-    const getCsrfToken = () => {
-        const metaTag = document.querySelector('meta[name="csrf-token"]');
-        return metaTag ? metaTag.content : '';
-    };
+    const navigate = useNavigate();
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -31,22 +29,12 @@ export const GroupForm = () => {
         setLoading(true);
 
         try {
-            const formDataToSend = new FormData(e.target);
-            const csrfToken = getCsrfToken();
-
-            const response = await axios.post('/group/create', formDataToSend, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': csrfToken
-                },
-                withCredentials: true
-            });
-
-            if (response.data.status === 'success') {
-                window.location.href = response.data.redirect_url;
+            const response = await createGroup(formData);
+            if (response.status === 'success') {
+                navigate(`/groups/${response.data.group_id}`);
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create group');
+            setError(err.message || 'Failed to create group');
         } finally {
             setLoading(false);
         }
@@ -54,8 +42,6 @@ export const GroupForm = () => {
 
     return (
         <form id="createGroupForm" className="space-y-6" onSubmit={handleSubmit}>
-            <input type="hidden" name="csrf_token" value={getCsrfToken()} />
-
             <div className="form-group">
                 <label htmlFor="name" className="block text-[#05445E] font-medium mb-2">
                     Group Name
@@ -96,7 +82,13 @@ export const GroupForm = () => {
                 <label className="block text-[#05445E] font-medium mb-2">
                     Select Teams to Track
                 </label>
-                <TeamSelector />
+                <TeamSelector 
+                    selectedLeague={formData.league}
+                    onTeamsSelected={(teams) => setFormData(prev => ({
+                        ...prev,
+                        tracked_teams: teams
+                    }))}
+                />
             </div>
 
             <div className="form-group">
@@ -139,18 +131,20 @@ export const GroupForm = () => {
                 >
                     {loading ? 'Creating...' : 'Create Group'}
                 </button>
-                <a href="/" className="text-[#189AB4] hover:text-[#05445E]">
+                <button 
+                    type="button" 
+                    onClick={() => navigate('/')}
+                    className="text-[#189AB4] hover:text-[#05445E]"
+                >
                     Cancel
-                </a>
+                </button>
             </div>
 
             {error && (
-                <div id="errorContainer" className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                    <p id="errorMessage">{error}</p>
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                    <p>{error}</p>
                 </div>
             )}
         </form>
     );
 };
-
-export default GroupForm;

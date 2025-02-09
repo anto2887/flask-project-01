@@ -1,27 +1,24 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { login } from '../../api/auth';
 
 export const Login = () => {
   const [formData, setFormData] = useState({
     username: '',
     password: ''
   });
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('/auth/login', formData, {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
-        }
-      });
-      if (response.data.success) {
+      const response = await login(formData.username, formData.password);
+      if (response.status === 'success') {
         navigate('/dashboard');
       }
     } catch (error) {
+      setError(error.message || 'Login failed');
       console.error('Login failed:', error);
     }
   };
@@ -31,6 +28,11 @@ export const Login = () => {
       <div className="card login-container">
         <img src="/static/pictures/soccer-ball.png" alt="Soccer Ball" className="logo" />
         <h2>PrdiktIt - Log In</h2>
+        {error && (
+          <div className="error-message">
+            {error}
+          </div>
+        )}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="username">Username</label>
