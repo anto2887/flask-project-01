@@ -1,18 +1,31 @@
 import React from 'react';
-import './style.css';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Login } from './components/auth/Login';
-import { Register } from './components/auth/Register';
-import { GroupForm } from './components/groups/GroupForm';
+import { BrowserRouter as Router } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { UserProvider } from './contexts/UserContext';
+import { MatchProvider } from './contexts/MatchContext';
+import { PredictionProvider } from './contexts/PredictionContext';
+import ErrorBoundary from './components/common/ErrorBoundary';
+import MainLayout from './components/layout/MainLayout';
+import AppRoutes from './routes';
 
-const App = () => (
-  <Router>
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/group/create" element={<GroupForm />} />
-    </Routes>
-  </Router>
-);
+const App = () => {
+    return (
+        <ErrorBoundary>
+            <Router>
+                <AuthProvider>
+                    <UserProvider>
+                        <MatchProvider>
+                            <PredictionProvider>
+                                <MainLayout>
+                                    <AppRoutes />
+                                </MainLayout>
+                            </PredictionProvider>
+                        </MatchProvider>
+                    </UserProvider>
+                </AuthProvider>
+            </Router>
+        </ErrorBoundary>
+    );
+};
 
 export default App;
