@@ -75,3 +75,5 @@ config.py
 
 # Node modules dir
 **/frontend/node_modules
+
+repomix-output.txt
