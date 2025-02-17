@@ -226,3 +226,105 @@ class ScoreProcessingService:
         except Exception as e:
             current_app.logger.error(f"Error getting live scores: {str(e)}")
             return []
+
+    def recover_failed_processing(self):
+        """Recover any matches that failed to process properly"""
+        try:
+            # Find matches that might have failed processing
+            potential_failed_matches = Fixture.query.filter(
+                Fixture.status.in_([
+                    MatchStatus.FINISHED,
+                    MatchStatus.FINISHED_AET,
+                    MatchStatus.FINISHED_PEN
+                ])
+            ).filter(
+                # Has unprocessed predictions
+                Fixture.predictions.any(
+                    UserPredictions.prediction_status != PredictionStatus.PROCESSED
+                )
+            ).all()
+
+            for fixture in potential_failed_matches:
+                try:
+                    current_app.logger.info(f"Attempting to recover processing for match {fixture.fixture_id}")
+                    
+                    # Get latest match data
+                    match_data = self.api.get_fixture_details(fixture.fixture_id)
+                    if not match_data:
+                        continue
+
+                    # Reprocess the match
+                    self.process_final_score(fixture, match_data)
+                    
+                    current_app.logger.info(f"Successfully recovered match {fixture.fixture_id}")
+                    
+                except Exception as e:
+                    current_app.logger.error(f"Failed to recover match {fixture.fixture_id}: {str(e)}")
+                    continue
+
+        except Exception as e:
+            current_app.logger.error(f"Error in recovery process: {str(e)}")
+            raise
+
+    def verify_points_and_tables(self):
+        """Verify all points and league tables are correct"""
+        try:
+            # Get all completed matches
+            completed_matches = Fixture.query.filter(
+                Fixture.status.in_([
+                    MatchStatus.FINISHED,
+                    MatchStatus.FINISHED_AET,
+                    MatchStatus.FINISHED_PEN
+                ])
+            ).all()
+
+            for fixture in completed_matches:
+                # Get all processed predictions
+                predictions = UserPredictions.query.filter_by(
+                    fixture_id=fixture.fixture_id,
+                    prediction_status=PredictionStatus.PROCESSED
+                ).all()
+
+                for prediction in predictions:
+                    # Recalculate points
+                    expected_points = self._calculate_points(
+                        prediction.score1,
+                        prediction.score2,
+                        fixture.home_score,
+                        fixture.away_score
+                    )
+
+                    # Check if points match
+                    if prediction.points != expected_points:
+                        current_app.logger.warning(
+                            f"Points mismatch for prediction {prediction.id}: "
+                            f"has {prediction.points}, should be {expected_points}"
+                        )
+                        # Update points
+                        prediction.points = expected_points
+                        db.session.commit()
+
+            # Verify league tables
+            groups = Group.query.all()
+            for group in groups:
+                user_points = {}
+                for member in group.member_roles:
+                    total_points = sum(
+                        pred.points for pred in member.user.predictions 
+                        if pred.prediction_status == PredictionStatus.PROCESSED
+                    )
+                    user_points[member.user_id] = total_points
+
+                    # Update if there's a mismatch
+                    if member.points != total_points:
+                        current_app.logger.warning(
+                            f"Points mismatch in group {group.id} for user {member.user_id}: "
+                            f"has {member.points}, should be {total_points}"
+                        )
+                        member.points = total_points
+                        db.session.commit()
+
+        except Exception as e:
+            current_app.logger.error(f"Error in verification process: {str(e)}")
+            db.session.rollback()
+            raise

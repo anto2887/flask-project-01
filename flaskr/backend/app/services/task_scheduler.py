@@ -35,6 +35,50 @@ class TaskScheduler:
             current_app.logger.error(f"Error scheduling tasks: {str(e)}")
             raise
 
+    def schedule_verification_tasks(self):
+        """Schedule verification tasks"""
+        try:
+            # Schedule points verification (daily)
+            self.eventbridge.put_rule(
+                Name='daily-points-verification',
+                ScheduleExpression='rate(1 day)',
+                State='ENABLED',
+                Description='Verify all points and league tables daily'
+            )
+
+            # Schedule failed processing recovery (hourly)
+            self.eventbridge.put_rule(
+                Name='hourly-processing-recovery',
+                ScheduleExpression='rate(1 hour)',
+                State='ENABLED',
+                Description='Recover any failed match processing'
+            )
+
+            # Add targets
+            self.eventbridge.put_targets(
+                Rule='daily-points-verification',
+                Targets=[{
+                    'Id': 'VerifyPoints',
+                    'Arn': current_app.config['VERIFICATION_LAMBDA_ARN'],
+                    'Input': '{"task": "verify_points_and_tables"}'
+                }]
+            )
+
+            self.eventbridge.put_targets(
+                Rule='hourly-processing-recovery',
+                Targets=[{
+                    'Id': 'RecoverProcessing',
+                    'Arn': current_app.config['RECOVERY_LAMBDA_ARN'],
+                    'Input': '{"task": "recover_failed_processing"}'
+                }]
+            )
+
+            current_app.logger.info("Successfully scheduled verification tasks")
+
+        except Exception as e:
+            current_app.logger.error(f"Error scheduling verification tasks: {str(e)}")
+            raise
+
     async def execute_monitoring(self):
         """Execute the monitoring task"""
         try:
