@@ -11,7 +11,6 @@ from flask.cli import with_appcontext
 
 from app.db import db
 from app.models import Users, Post, UserResults, Fixture
-from app.api import matches
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
@@ -225,7 +224,6 @@ def create_app(test_config=None):
         app.register_blueprint(blog.bp)
         app.register_blueprint(group_bp)
         app.register_blueprint(football_api_bp)
-        app.register_blueprint(matches.bp)
         register_error_handlers(app)
         
         app.logger.info("All blueprints registered successfully")

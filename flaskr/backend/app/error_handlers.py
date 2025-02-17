@@ -1,5 +1,6 @@
 from flask import render_template, jsonify, request, current_app
 from werkzeug.exceptions import HTTPException
+from http import HTTPStatus
 
 
 def register_error_handlers(app):
@@ -19,8 +20,8 @@ def register_error_handlers(app):
         if request_wants_json():
             return jsonify({
                 'status': 'error',
-                'message': 'You do not have permission to perform this action'
-            }), 403
+                'message': 'Forbidden'
+            }), HTTPStatus.FORBIDDEN
         return render_template('errors/403.html', error=error), 403
 
     @app.errorhandler(404)
@@ -30,7 +31,7 @@ def register_error_handlers(app):
             return jsonify({
                 'status': 'error',
                 'message': 'Resource not found'
-            }), 404
+            }), HTTPStatus.NOT_FOUND
         return render_template('errors/404.html', error=error), 404
 
     @app.errorhandler(500)
@@ -39,8 +40,8 @@ def register_error_handlers(app):
         if request_wants_json():
             return jsonify({
                 'status': 'error',
-                'message': 'An internal server error occurred'
-            }), 500
+                'message': 'Internal server error'
+            }), HTTPStatus.INTERNAL_SERVER_ERROR
         return render_template('errors/500.html', error=error), 500
 
     @app.errorhandler(Exception)

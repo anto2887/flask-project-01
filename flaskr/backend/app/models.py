@@ -2,6 +2,7 @@ from datetime import datetime
 from app.db import db
 from flask_login import UserMixin
 from enum import Enum
+import uuid
 
 class MatchStatus(Enum):
     NOT_STARTED = "NOT_STARTED"
@@ -45,7 +46,8 @@ class MembershipStatus(Enum):
 
 user_groups = db.Table('user_groups',
     db.Column('user_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
-    db.Column('group_id', db.Integer, db.ForeignKey('groups.id'), primary_key=True)
+    db.Column('group_id', db.Integer, db.ForeignKey('groups.id'), primary_key=True),
+    db.Column('joined_at', db.DateTime, default=datetime.utcnow)
 )
 
 class Users(db.Model, UserMixin):
@@ -74,21 +76,23 @@ class Group(db.Model):
     __tablename__ = 'groups'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
-    league = db.Column(db.String, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    league = db.Column(db.String(50), nullable=False)
+    admin_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     invite_code = db.Column(db.String(8), unique=True, nullable=False)
-    privacy_type = db.Column(db.Enum(GroupPrivacyType), default=GroupPrivacyType.PRIVATE)
-    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created = db.Column(db.DateTime, default=datetime.utcnow)
-    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    teams = db.Column(db.JSON)  # Store selected teams as JSON array
     
-    users = db.relationship('Users', secondary=user_groups, back_populates='groups')
-    tracked_teams = db.relationship('TeamTracker', backref='group', lazy=True)
-    member_roles = db.relationship('GroupMember', backref='group', lazy=True)
-    analytics = db.relationship('GroupAnalytics', backref='group', lazy=True)
-    pending_members = db.relationship('PendingMembership', backref='group', lazy=True)
-    audit_logs = db.relationship('GroupAuditLog', backref='group', lazy=True)
-    posts = db.relationship('Post', backref='group', lazy=True)
+    # Relationships
+    admin = db.relationship('Users', backref='administered_groups')
+    members = db.relationship('Users', 
+                            secondary='user_groups',
+                            backref=db.backref('groups', lazy='dynamic'))
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.invite_code:
+            self.invite_code = str(uuid.uuid4())[:8].upper()
 
 class Post(db.Model):
     __tablename__ = 'post'
@@ -131,8 +135,7 @@ class UserPredictions(db.Model):
     __table_args__ = (
         db.UniqueConstraint('author_id', 'fixture_id', name='_user_fixture_uc'),
         db.Index('idx_predictions_status', 'prediction_status'),
-        db.Index('idx_predictions_fixture', 'fixture_id'),
-        db.Index('idx_user_predictions', 'author_id', 'fixture_id', 'prediction_status')
+        db.Index('idx_predictions_fixture', 'fixture_id')
     )
 
 class Fixture(db.Model):
@@ -174,8 +177,7 @@ class Fixture(db.Model):
     __table_args__ = (
         db.Index('idx_fixture_date_status', 'date', 'status'),
         db.Index('idx_fixture_league_season', 'league', 'season'),
-        db.Index('idx_fixture_competition', 'competition_id'),
-        db.Index('idx_fixture_upcoming', 'date', 'status', 'league_id')
+        db.Index('idx_fixture_competition', 'competition_id')
     )
 
 class TeamTracker(db.Model):
