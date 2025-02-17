@@ -1,22 +1,23 @@
-
+// GroupRoutes.jsx
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { GroupList } from '../components/groups/GroupList';
-import { GroupCreate } from '../components/groups/GroupCreate';
-import { GroupDetails } from '../components/groups/GroupDetails';
-import { GroupSettings } from '../components/groups/GroupSettings';
-import { GroupMembers } from '../components/groups/GroupMembers';
-import { JoinGroup } from '../components/groups/JoinGroup';
+import GroupForm from '../components/groups/GroupForm';
+import JoinGroup from '../components/groups/JoinGroup';
+import GroupManagement from '../components/groups/GroupManagement';
+import GroupInvite from '../components/groups/GroupInvite';
+import ProtectedRoute from '../components/auth/ProtectedRoute';
 
-export const GroupRoutes = () => {
-  return (
-    <Routes>
-      <Route index element={<GroupList />} />
-      <Route path="create" element={<GroupCreate />} />
-      <Route path="join" element={<JoinGroup />} />
-      <Route path=":groupId" element={<GroupDetails />} />
-      <Route path=":groupId/settings" element={<GroupSettings />} />
-      <Route path=":groupId/members" element={<GroupMembers />} />
-    </Routes>
-  );
+const GroupRoutes = () => {
+    return (
+        <Routes>
+            <Route element={<ProtectedRoute />}>
+                <Route path="create" element={<GroupForm />} />
+                <Route path="join" element={<JoinGroup />} />
+                <Route path=":groupId/manage" element={<GroupManagement />} />
+                <Route path=":groupId/invite" element={<GroupInvite />} />
+            </Route>
+        </Routes>
+    );
 };
+
+export default GroupRoutes;

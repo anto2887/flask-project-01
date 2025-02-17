@@ -1,67 +1,103 @@
+// JoinGroup.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { joinGroup } from '../../api/groups';
+import { useGroups } from '../../contexts/GroupContext';
+import { useNotifications } from '../../contexts/NotificationContext';
+import LoadingSpinner from '../common/LoadingSpinner';
 
-export const JoinGroup = () => {
-  const [inviteCode, setInviteCode] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+const JoinGroup = () => {
+    const [inviteCode, setInviteCode] = useState('');
+    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+    const { joinGroup } = useGroups();
+    const { showSuccess, showError } = useNotifications();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!inviteCode.trim()) {
+            showError('Please enter an invite code');
+            return;
+        }
 
-    try {
-      const response = await joinGroup(inviteCode);
-      if (response.status === 'success') {
-        navigate('/dashboard');
-      }
-    } catch (error) {
-      setError(error.message || 'Failed to join group');
-    } finally {
-      setLoading(false);
+        setLoading(true);
+        try {
+            const response = await joinGroup(inviteCode.trim());
+            if (response) {
+                showSuccess('Successfully joined league');
+                navigate('/dashboard');
+            }
+        } catch (error) {
+            showError(error.message || 'Failed to join league');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Format invite code input (XXXX-XXXX)
+    const handleInviteCodeChange = (e) => {
+        let value = e.target.value.toUpperCase();
+        value = value.replace(/[^A-Z0-9]/g, '');
+        if (value.length > 8) {
+            value = value.slice(0, 8);
+        }
+        setInviteCode(value);
+    };
+
+    if (loading) {
+        return <LoadingSpinner />;
     }
-  };
 
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="card max-w-md mx-auto">
-        <h1 className="text-2xl font-bold text-[#05445E] mb-6">Join a Group</h1>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="form-group">
-            <label htmlFor="invite_code" className="block text-[#05445E] font-medium mb-2">
-              Enter Invite Code
-            </label>
-            <input
-              type="text"
-              id="invite_code"
-              value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-              className="w-full p-3 border rounded text-center uppercase tracking-wider"
-              placeholder="XXXX-0000"
-              pattern="[A-Z0-9]{8}"
-              required
-              disabled={loading}
-            />
-          </div>
-          <button 
-            type="submit" 
-            className={`w-full bg-[#189AB4] text-white px-6 py-3 rounded hover:bg-[#05445E] ${
-              loading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-            disabled={loading}
-          >
-            {loading ? 'Joining...' : 'Join Group'}
-          </button>
-        </form>
-        {error && (
-          <div className="mt-4 p-4 bg-red-100 text-red-700 rounded">
-            {error}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+    return (
+        <div className="max-w-2xl mx-auto p-6">
+            <div className="bg-white rounded-lg shadow-lg p-8">
+                <h1 className="text-2xl font-bold text-gray-900 mb-6">
+                    Join League
+                </h1>
+
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div>
+                        <label 
+                            htmlFor="inviteCode" 
+                            className="block text-sm font-medium text-gray-700 mb-2"
+                        >
+                            Enter Invite Code
+                        </label>
+                        <input
+                            id="inviteCode"
+                            type="text"
+                            value={inviteCode}
+                            onChange={handleInviteCodeChange}
+                            placeholder="Enter 8-character code"
+                            className="w-full p-3 border rounded-md text-center tracking-wider uppercase"
+                            maxLength={8}
+                            required
+                        />
+                        <p className="mt-2 text-sm text-gray-500">
+                            Enter the 8-character code provided by the league admin
+                        </p>
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={loading || inviteCode.length !== 8}
+                        className="w-full bg-blue-600 text-white p-3 rounded-md 
+                                 hover:bg-blue-700 disabled:bg-gray-400 
+                                 disabled:cursor-not-allowed"
+                    >
+                        Join League
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => navigate('/dashboard')}
+                        className="w-full text-blue-600 hover:text-blue-800"
+                    >
+                        Back to Dashboard
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
 };
+
+export default JoinGroup;
