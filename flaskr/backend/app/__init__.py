@@ -48,6 +48,8 @@ def init_services(app):
             from app.api_client import initialize_services, get_secret
             from app.services.team_service import TeamService
             from app.services.football_api import FootballAPIService
+            from app.services.match_monitor import MatchMonitorService
+            from app.services.task_scheduler import TaskScheduler
             from app.models import MatchStatus, GroupPrivacyType, MemberRole, PredictionStatus
             
             app.logger.info("Starting API services initialization...")
@@ -71,6 +73,21 @@ def init_services(app):
             # Store services in app config for global access
             app.config['FOOTBALL_API_SERVICE'] = football_api
             app.config['TEAM_SERVICE'] = team_service
+            
+            # Initialize match monitoring
+            match_monitor = MatchMonitorService(
+                football_api_service=app.config['FOOTBALL_API_SERVICE'],
+                score_processor=app.config['SCORE_PROCESSOR']
+            )
+            
+            # Initialize and start task scheduler
+            task_scheduler = TaskScheduler(match_monitor)
+            if not app.debug:  # Only schedule in production
+                task_scheduler.schedule_match_monitoring()
+            
+            # Store monitoring services in app config
+            app.config['MATCH_MONITOR'] = match_monitor
+            app.config['TASK_SCHEDULER'] = task_scheduler
             
             # Register custom JSON encoders for enums
             from flask.json.provider import JSONProvider
