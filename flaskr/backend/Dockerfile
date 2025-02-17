@@ -9,7 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install build dependencies in a single layer
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
@@ -38,12 +38,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
     unzip \
-    && curl -L "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
-    && unzip awscliv2.zip \
-    && ./aws/install \
-    && rm -rf awscliv2.zip aws \
-    && apt-get remove -y unzip \
-    && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -59,7 +53,7 @@ RUN chmod +x /usr/local/bin/wait-for-it.sh ./entrypoint.sh && \
     mkdir -p /flaskr/logs && \
     chmod 777 /flaskr/logs
 
-# Copy application files last (they change most frequently)
+# Copy application files
 COPY . .
 
 EXPOSE 5000
