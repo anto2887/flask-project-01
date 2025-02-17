@@ -1,190 +1,204 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  getGroupById, 
-  getGroupMembers, 
-  manageMembers, 
-  removeMember, 
-  regenerateInviteCode 
-} from '../../api/groups';
+import { useParams } from 'react-router-dom';
+import { useGroups } from '../../contexts/GroupContext';
+import { useNotifications } from '../../contexts/NotificationContext';
+import LoadingSpinner from '../common/LoadingSpinner';
+import ErrorMessage from '../common/ErrorMessage';
 
-export const AdminDashboard = ({ groupId }) => {
-  const [group, setGroup] = useState(null);
+const AdminDashboard = () => {
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(null);
+  const { groupId } = useParams();
+  const { showSuccess, showError } = useNotifications();
+  const { 
+    currentGroup,
+    fetchGroupDetails,
+    fetchGroupMembers,
+    manageMember,
+    regenerateInviteCode,
+    loading,
+    error 
+  } = useGroups();
+
   const [members, setMembers] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchGroupData = async () => {
-      setLoading(true);
-      try {
-        // Get group details including analytics
-        const groupResponse = await getGroupById(groupId);
-        if (groupResponse.status === 'success') {
-          setGroup(groupResponse.data);
-        }
-
-        // Get group members
-        const membersResponse = await getGroupMembers(groupId);
-        if (membersResponse.status === 'success') {
-          setMembers(membersResponse.data);
-          // Filter pending requests from members
-          setPendingRequests(membersResponse.data.filter(
-            member => member.status === 'PENDING'
-          ));
-        }
-      } catch (err) {
-        setError(err.message || 'Failed to fetch group data');
-        console.error('Error fetching group data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchGroupData();
+    if (groupId) {
+      loadGroupData();
+    }
   }, [groupId]);
+
+  const loadGroupData = async () => {
+    try {
+      await fetchGroupDetails(groupId);
+      const membersData = await fetchGroupMembers(groupId);
+      setMembers(membersData.filter(m => m.status === 'APPROVED'));
+      setPendingRequests(membersData.filter(m => m.status === 'PENDING'));
+    } catch (err) {
+      showError('Failed to load group data');
+    }
+  };
 
   const handleMemberAction = async (userId, action) => {
     try {
-      const response = await manageMembers(groupId, action, [userId]);
-      if (response.status === 'success') {
-        // Refresh member list
-        const updatedMembers = await getGroupMembers(groupId);
-        if (updatedMembers.status === 'success') {
-          setMembers(updatedMembers.data);
-          setPendingRequests(updatedMembers.data.filter(
-            member => member.status === 'PENDING'
-          ));
-        }
+      const success = await manageMember(groupId, userId, action);
+      if (success) {
+        showSuccess(`Successfully ${action.toLowerCase()}ed member`);
+        loadGroupData(); // Refresh member list
       }
     } catch (err) {
-      console.error(`Failed to ${action} member:`, err);
-      setError(err.message || `Failed to ${action} member`);
+      showError(`Failed to ${action.toLowerCase()} member`);
     }
   };
 
   const handleRegenerateCode = async () => {
     try {
-      const response = await regenerateInviteCode(groupId);
-      if (response.status === 'success') {
-        setGroup(prev => ({
-          ...prev,
-          invite_code: response.data.invite_code
-        }));
+      const newCode = await regenerateInviteCode(groupId);
+      if (newCode) {
+        showSuccess('Successfully regenerated invite code');
+        setShowRegenerateConfirm(false);
       }
     } catch (err) {
-      setError(err.message || 'Failed to regenerate invite code');
+      showError('Failed to regenerate invite code');
     }
   };
 
-  if (loading) {
-    return <div className="text-center p-8">Loading...</div>;
-  }
-
-  if (error) {
-    return (
-      <div className="text-center p-8 text-red-600">
-        Error: {error}
-      </div>
-    );
-  }
-
-  if (!group) return null;
+  if (loading) return <LoadingSpinner />;
+  if (error) return <ErrorMessage message={error} />;
+  if (!currentGroup) return <ErrorMessage message="Group not found" />;
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="card mb-8">
+      {/* Group Info Section */}
+      <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold text-[#05445E]">{group.name}</h1>
-            <p className="text-[#189AB4]">{group.league}</p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              {currentGroup.name}
+            </h1>
+            <p className="text-gray-600">{currentGroup.league}</p>
           </div>
-          <div>
-            <p className="text-sm">Invite Code: {group.invite_code}</p>
+          <div className="text-right">
+            <p className="text-sm text-gray-500">
+              Created: {new Date(currentGroup.created_at).toLocaleDateString()}
+            </p>
+            <p className="text-sm text-gray-500">
+              Members: {members.length}
+            </p>
+          </div>
+        </div>
+
+        {/* Invite Code Section */}
+        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="font-semibold text-gray-700">Invite Code</h3>
+              <p className="text-xl font-mono mt-1">{currentGroup.invite_code}</p>
+            </div>
             <button
-              onClick={handleRegenerateCode}
-              className="text-sm text-blue-600 hover:text-blue-800"
+              onClick={() => setShowRegenerateConfirm(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
               Regenerate Code
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Members Section */}
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Members ({members.length})</h2>
-          <div className="grid gap-4">
-            {members.map(member => (
-              <div key={member.user_id} className="flex justify-between items-center p-4 bg-gray-50 rounded">
+      {/* Pending Requests Section */}
+      {pendingRequests.length > 0 && (
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            Pending Requests ({pendingRequests.length})
+          </h2>
+          <div className="space-y-4">
+            {pendingRequests.map(request => (
+              <div key={request.user_id} 
+                   className="flex justify-between items-center p-4 bg-yellow-50 rounded-lg">
                 <div>
-                  <p className="font-medium">{member.username}</p>
-                  <p className="text-sm text-gray-600">{member.role}</p>
+                  <p className="font-medium">{request.username}</p>
+                  <p className="text-sm text-gray-500">
+                    Requested: {new Date(request.requested_at).toLocaleDateString()}
+                  </p>
                 </div>
-                {member.role !== 'ADMIN' && (
-                  <div className="space-x-2">
-                    <button
-                      onClick={() => handleMemberAction(member.user_id, 'PROMOTE_MODERATOR')}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      Promote
-                    </button>
-                    <button
-                      onClick={() => handleMemberAction(member.user_id, 'REMOVE')}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
+                <div className="space-x-2">
+                  <button
+                    onClick={() => handleMemberAction(request.user_id, 'APPROVE')}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => handleMemberAction(request.user_id, 'REJECT')}
+                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                  >
+                    Reject
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         </div>
+      )}
 
-        {/* Pending Requests Section */}
-        {pendingRequests.length > 0 && (
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4">Pending Requests</h2>
-            <div className="grid gap-4">
-              {pendingRequests.map(request => (
-                <div key={request.user_id} className="flex justify-between items-center p-4 bg-yellow-50 rounded">
-                  <p className="font-medium">{request.username}</p>
-                  <div className="space-x-2">
-                    <button
-                      onClick={() => handleMemberAction(request.user_id, 'APPROVE')}
-                      className="text-green-600 hover:text-green-800"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => handleMemberAction(request.user_id, 'REJECT')}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Analytics Section */}
-        {group.analytics && (
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4">Group Analytics</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="p-4 bg-gray-50 rounded">
-                <h3 className="font-medium">Overall Stats</h3>
-                <p>Total Predictions: {group.analytics.overall_stats.total_predictions}</p>
-                <p>Average Points: {group.analytics.overall_stats.average_points}</p>
-                <p>Perfect Predictions: {group.analytics.overall_stats.perfect_predictions}</p>
+      {/* Members List Section */}
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">
+          Members ({members.length})
+        </h2>
+        <div className="space-y-4">
+          {members.map(member => (
+            <div key={member.user_id} 
+                 className="flex justify-between items-center p-4 border-b">
+              <div>
+                <p className="font-medium">{member.username}</p>
+                <p className="text-sm text-gray-500">
+                  Joined: {new Date(member.joined_at).toLocaleDateString()}
+                </p>
               </div>
-              {/* Add more analytics sections as needed */}
+              {member.role !== 'ADMIN' && (
+                <div className="space-x-2">
+                  <button
+                    onClick={() => handleMemberAction(member.user_id, 'REMOVE')}
+                    className="px-4 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Regenerate Code Confirmation Modal */}
+      {showRegenerateConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full">
+            <h3 className="text-xl font-bold mb-4">Regenerate Invite Code?</h3>
+            <p className="text-gray-600 mb-6">
+              This will invalidate the current invite code. Users will need the new code to join the group.
+            </p>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => setShowRegenerateConfirm(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRegenerateCode}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Regenerate
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export default AdminDashboard;
