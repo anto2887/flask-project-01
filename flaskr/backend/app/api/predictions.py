@@ -195,3 +195,66 @@ def get_user_predictions():
             'status': 'error',
             'message': 'Error fetching predictions'
         }), HTTPStatus.INTERNAL_SERVER_ERROR
+
+@bp.route('/batch', methods=['POST'])
+@login_required_api
+def create_predictions():
+    try:
+        data = request.get_json()
+        if not data or 'predictions' not in data:
+            return jsonify({
+                'status': 'error',
+                'message': 'No predictions provided'
+            }), HTTPStatus.BAD_REQUEST
+        
+        predictions_data = data['predictions']
+        results = []
+        
+        for fixture_id, scores in predictions_data.items():
+            fixture = Fixture.query.filter_by(fixture_id=fixture_id).first()
+            
+            if not fixture or fixture.status != MatchStatus.NOT_STARTED:
+                continue
+            
+            prediction = UserPredictions.query.filter_by(
+                author_id=current_user.id,
+                fixture_id=fixture_id
+            ).first()
+            
+            if not prediction:
+                prediction = UserPredictions(
+                    author_id=current_user.id,
+                    fixture_id=fixture_id,
+                    week=int(fixture.round.split(' ')[-1]),
+                    season=fixture.season
+                )
+                db.session.add(prediction)
+            
+            prediction.score1 = scores['home']
+            prediction.score2 = scores['away']
+            prediction.prediction_status = PredictionStatus.SUBMITTED
+            prediction.submission_time = datetime.now(timezone.utc)
+            
+            results.append({
+                'prediction_id': prediction.id,
+                'fixture_id': prediction.fixture_id,
+                'score1': prediction.score1,
+                'score2': prediction.score2,
+                'status': prediction.prediction_status.value
+            })
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Predictions saved successfully',
+            'data': results
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating predictions: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Error creating predictions'
+        }), HTTPStatus.INTERNAL_SERVER_ERROR

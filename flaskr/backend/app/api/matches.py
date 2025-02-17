@@ -3,9 +3,10 @@ from http import HTTPStatus
 from datetime import datetime, timezone
 
 from app.api import login_required_api
-from app.models import Fixture, MatchStatus, db
+from app.models import Fixture, MatchStatus, db, League, LeagueMember
 from app.services.football_api import FootballAPIService
 from app.services.match_processing import get_prediction_deadlines
+from flask_login import current_user
 
 bp = Blueprint('matches', __name__, url_prefix='/matches')
 
@@ -157,4 +158,45 @@ def get_match_statuses():
         return jsonify({
             'status': 'error',
             'message': 'Error fetching match statuses'
+        }), HTTPStatus.INTERNAL_SERVER_ERROR
+
+@bp.route('/upcoming', methods=['GET'])
+@login_required_api
+def get_upcoming_matches():
+    try:
+        # Get leagues the user is part of
+        user_leagues = LeagueMember.query.filter_by(user_id=current_user.id).all()
+        if not user_leagues:
+            return jsonify({'matches': []})
+        
+        league_ids = [member.league_id for member in user_leagues]
+        
+        # Get upcoming matches for user's leagues
+        matches = Fixture.query\
+            .filter(Fixture.league_id.in_(league_ids))\
+            .filter(Fixture.date > datetime.now(timezone.utc))\
+            .order_by(Fixture.date.asc())\
+            .all()
+        
+        return jsonify({
+            'status': 'success',
+            'matches': [{
+                'id': m.fixture_id,
+                'homeTeam': {
+                    'name': m.home_team,
+                    'logo': m.home_team_logo
+                },
+                'awayTeam': {
+                    'name': m.away_team,
+                    'logo': m.away_team_logo
+                },
+                'kickoff': m.date.isoformat()
+            } for m in matches]
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching upcoming matches: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Error fetching matches'
         }), HTTPStatus.INTERNAL_SERVER_ERROR

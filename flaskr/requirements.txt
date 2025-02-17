@@ -36,5 +36,6 @@ tenacity>=8.2.2
 tzdata==2023.3
 tzlocal==5.2
 urllib3>=1.25.4,<1.27
+uuid==1.30
 Werkzeug==3.0.0
 WTForms==3.1.2

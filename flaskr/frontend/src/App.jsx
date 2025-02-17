@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { GroupProvider } from './contexts/GroupContext';
@@ -9,6 +9,7 @@ import StateProvider from './components/state/StateProvider';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import MainLayout from './components/layout/MainLayout';
 import AppRoutes from './routes';
+import PredictionForm from './components/predictions/PredictionForm';
 
 const App = () => {
   return (
@@ -21,7 +22,9 @@ const App = () => {
                 <PredictionProvider>
                   <StateProvider>
                     <MainLayout>
-                      <AppRoutes />
+                      <Routes>
+                        <Route path="/predictions/new" element={<PredictionForm />} />
+                      </Routes>
                     </MainLayout>
                   </StateProvider>
                 </PredictionProvider>

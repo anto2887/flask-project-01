@@ -131,7 +131,8 @@ class UserPredictions(db.Model):
     __table_args__ = (
         db.UniqueConstraint('author_id', 'fixture_id', name='_user_fixture_uc'),
         db.Index('idx_predictions_status', 'prediction_status'),
-        db.Index('idx_predictions_fixture', 'fixture_id')
+        db.Index('idx_predictions_fixture', 'fixture_id'),
+        db.Index('idx_user_predictions', 'author_id', 'fixture_id', 'prediction_status')
     )
 
 class Fixture(db.Model):
@@ -173,7 +174,8 @@ class Fixture(db.Model):
     __table_args__ = (
         db.Index('idx_fixture_date_status', 'date', 'status'),
         db.Index('idx_fixture_league_season', 'league', 'season'),
-        db.Index('idx_fixture_competition', 'competition_id')
+        db.Index('idx_fixture_competition', 'competition_id'),
+        db.Index('idx_fixture_upcoming', 'date', 'status', 'league_id')
     )
 
 class TeamTracker(db.Model):
