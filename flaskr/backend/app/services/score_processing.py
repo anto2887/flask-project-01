@@ -1,7 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict
 from flask import current_app
-from app.models import Fixture, UserPredictions, UserResults, db
+from app.models import (
+    Fixture, UserPredictions, UserResults, db, 
+    MatchStatus, PredictionStatus, Group
+)
 
 class ScoreProcessingService:
     def __init__(self, football_api_service):
@@ -10,7 +13,6 @@ class ScoreProcessingService:
     def process_live_matches(self, league_id: int):
         """Process all live matches for a league"""
         try:
-            # Changed from get_live_matches to get_live_fixtures to match new API
             live_matches = self.api.get_live_fixtures(league_id)
             
             if not live_matches:
@@ -29,8 +31,8 @@ class ScoreProcessingService:
                         
                     self.update_fixture_status(fixture, match)
                     
-                    # Check for both 'FT' and 'Match Finished' status
-                    if match['fixture']['status']['short'] in ['FT', 'Match Finished']:
+                    # Check for match completion
+                    if match['fixture']['status']['short'] in ['FT', 'AET', 'PEN', 'Match Finished']:
                         self.process_final_score(fixture, match)
                         
                 except Exception as e:
@@ -44,26 +46,25 @@ class ScoreProcessingService:
     def update_fixture_status(self, fixture: Fixture, match_data: dict):
         """Update fixture status and scores"""
         try:
-            # Status mapping to standardize status values
             status_mapping = {
-                "1H": "FIRST_HALF",
-                "HT": "HALFTIME",
-                "2H": "SECOND_HALF",
-                "FT": "FINISHED",
-                "PEN": "PENALTY",
-                "AET": "EXTRA_TIME",
-                "LIVE": "LIVE",
-                "PST": "POSTPONED",
-                "CANC": "CANCELLED"
+                "1H": MatchStatus.FIRST_HALF,
+                "HT": MatchStatus.HALFTIME,
+                "2H": MatchStatus.SECOND_HALF,
+                "FT": MatchStatus.FINISHED,
+                "PEN": MatchStatus.PENALTY,
+                "AET": MatchStatus.EXTRA_TIME,
+                "LIVE": MatchStatus.LIVE,
+                "PST": MatchStatus.POSTPONED,
+                "CANC": MatchStatus.CANCELLED
             }
 
             api_status = match_data['fixture']['status']['short']
-            new_status = status_mapping.get(api_status, match_data['fixture']['status']['long'])
+            new_status = status_mapping.get(api_status, MatchStatus.LIVE)
 
             fixture.status = new_status
             fixture.home_score = match_data['goals']['home'] if match_data['goals']['home'] is not None else fixture.home_score
             fixture.away_score = match_data['goals']['away'] if match_data['goals']['away'] is not None else fixture.away_score
-            fixture.last_checked = datetime.utcnow()
+            fixture.last_checked = datetime.now(timezone.utc)
 
             # Add additional scores if available
             if 'score' in match_data:
@@ -71,6 +72,10 @@ class ScoreProcessingService:
                     fixture.halftime_score = f"{match_data['score']['halftime']['home']}-{match_data['score']['halftime']['away']}"
                 if 'fulltime' in match_data['score']:
                     fixture.fulltime_score = f"{match_data['score']['fulltime']['home']}-{match_data['score']['fulltime']['away']}"
+                if 'extratime' in match_data['score']:
+                    fixture.extratime_score = f"{match_data['score']['extratime']['home']}-{match_data['score']['extratime']['away']}"
+                if 'penalty' in match_data['score']:
+                    fixture.penalty_score = f"{match_data['score']['penalty']['home']}-{match_data['score']['penalty']['away']}"
 
             db.session.commit()
             current_app.logger.info(
@@ -85,12 +90,9 @@ class ScoreProcessingService:
     def process_final_score(self, fixture: Fixture, match_data: dict):
         """Process final scores and update user points"""
         try:
-            # Import inside the function to avoid circular dependency
-            from app.compare import calculate_points
-
             predictions = UserPredictions.query.filter_by(
                 fixture_id=fixture.fixture_id,
-                processed=False
+                prediction_status=PredictionStatus.LOCKED
             ).all()
 
             if not predictions:
@@ -99,7 +101,7 @@ class ScoreProcessingService:
 
             for prediction in predictions:
                 try:
-                    points = calculate_points(
+                    points = self._calculate_points(
                         prediction.score1,
                         prediction.score2,
                         match_data['goals']['home'],
@@ -108,9 +110,17 @@ class ScoreProcessingService:
 
                     # Update prediction
                     prediction.points = points
-                    prediction.processed = True
+                    prediction.prediction_status = PredictionStatus.PROCESSED
+                    prediction.processed_at = datetime.now(timezone.utc)
 
-                    # Update user results
+                    # Get user's leagues and update points
+                    user_leagues = Group.query.join(
+                        Group.member_roles
+                    ).filter(
+                        Group.member_roles.any(user_id=prediction.author_id)
+                    ).all()
+
+                    # Update user season results
                     user_result = UserResults.query.filter_by(
                         author_id=prediction.author_id,
                         season=fixture.season
@@ -125,6 +135,11 @@ class ScoreProcessingService:
                         db.session.add(user_result)
 
                     user_result.points += points
+
+                    # Update league tables
+                    for league in user_leagues:
+                        self._update_league_table(league.id, prediction.author_id, points)
+
                     current_app.logger.info(
                         f"Updated points for user {prediction.author_id}: +{points} points "
                         f"(Fixture: {fixture.fixture_id})"
@@ -144,13 +159,56 @@ class ScoreProcessingService:
             current_app.logger.error(f"Error processing final score: {str(e)}")
             raise
 
+    def _calculate_points(self, pred_home: int, pred_away: int, 
+                         actual_home: int, actual_away: int) -> int:
+        """Calculate prediction points"""
+        # Exact score match
+        if pred_home == actual_home and pred_away == actual_away:
+            return 3
+            
+        # Correct result but wrong score
+        pred_result = pred_home - pred_away
+        actual_result = actual_home - actual_away
+        if (pred_result > 0 and actual_result > 0) or \
+           (pred_result < 0 and actual_result < 0) or \
+           (pred_result == 0 and actual_result == 0):
+            return 1
+            
+        return 0
+
+    def _update_league_table(self, league_id: int, user_id: int, points: int) -> None:
+        """Update league table with new points"""
+        try:
+            league = Group.query.get(league_id)
+            if not league:
+                return
+
+            # Update user's points in the league
+            member = next((m for m in league.member_roles if m.user_id == user_id), None)
+            if member:
+                member.points = (member.points or 0) + points
+                current_app.logger.info(
+                    f"Updated league table for user {user_id} in league {league_id}: +{points} points"
+                )
+
+        except Exception as e:
+            current_app.logger.error(f"Error updating league table: {str(e)}")
+            raise
+
     def get_live_scores(self, league_id: int) -> List[Dict]:
         """Get current live scores for a league"""
         try:
             live_fixtures = Fixture.query.filter_by(
                 competition_id=league_id
             ).filter(
-                Fixture.status.in_(['LIVE', 'FIRST_HALF', 'SECOND_HALF', 'HALFTIME', 'EXTRA_TIME', 'PENALTY'])
+                Fixture.status.in_([
+                    MatchStatus.LIVE,
+                    MatchStatus.FIRST_HALF,
+                    MatchStatus.SECOND_HALF,
+                    MatchStatus.HALFTIME,
+                    MatchStatus.EXTRA_TIME,
+                    MatchStatus.PENALTY
+                ])
             ).all()
 
             return [{
