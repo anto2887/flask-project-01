@@ -370,3 +370,103 @@ def regenerate_invite_code(group_id):
             'status': 'error',
             'message': 'Error regenerating invite code'
         }), HTTPStatus.INTERNAL_SERVER_ERROR
+
+@bp.route('/<int:group_id>/members/<int:user_id>/role', methods=['PUT'])
+@login_required_api
+def update_member_role(group_id: int, user_id: int):
+    """Update a member's role in the group"""
+    try:
+        # Check if user is admin
+        if not GroupService.is_group_admin(current_user.id, group_id):
+            return jsonify({
+                'status': 'error',
+                'message': 'Unauthorized - Admin access required'
+            }), HTTPStatus.FORBIDDEN
+
+        data = request.get_json()
+        if not data or 'role' not in data:
+            return jsonify({
+                'status': 'error',
+                'message': 'Role is required'
+            }), HTTPStatus.BAD_REQUEST
+
+        try:
+            new_role = MemberRole[data['role']]
+        except KeyError:
+            return jsonify({
+                'status': 'error',
+                'message': 'Invalid role'
+            }), HTTPStatus.BAD_REQUEST
+
+        success, message = GroupService.update_member_role(group_id, user_id, new_role)
+        
+        if success:
+            return jsonify({
+                'status': 'success',
+                'message': message
+            })
+        
+        return jsonify({
+            'status': 'error',
+            'message': message
+        }), HTTPStatus.BAD_REQUEST
+
+    except Exception as e:
+        current_app.logger.error(f"Error updating member role: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to update member role'
+        }), HTTPStatus.INTERNAL_SERVER_ERROR
+
+@bp.route('/<int:group_id>/audit-log', methods=['GET'])
+@login_required_api
+def get_audit_log(group_id: int):
+    """Get group audit log"""
+    try:
+        # Check if user has permission to view audit log
+        if not GroupService.is_group_admin(current_user.id, group_id):
+            return jsonify({
+                'status': 'error',
+                'message': 'Unauthorized - Admin access required'
+            }), HTTPStatus.FORBIDDEN
+
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+
+        audit_logs = GroupService.get_audit_logs(group_id, page, per_page)
+        return jsonify({
+            'status': 'success',
+            'data': audit_logs
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching audit log: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to fetch audit log'
+        }), HTTPStatus.INTERNAL_SERVER_ERROR
+
+@bp.route('/<int:group_id>/members/activity', methods=['GET'])
+@login_required_api
+def get_member_activity(group_id: int):
+    """Get member activity statistics"""
+    try:
+        # Check if user has access to group
+        if not PermissionService.check_group_permission(current_user.id, group_id, MemberRole.MEMBER):
+            return jsonify({
+                'status': 'error',
+                'message': 'Unauthorized access'
+            }), HTTPStatus.FORBIDDEN
+
+        activity = GroupService.get_member_activity(group_id)
+        return jsonify({
+            'status': 'success',
+            'data': activity
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching member activity: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to fetch member activity'
+        }), HTTPStatus.INTERNAL_SERVER_ERROR

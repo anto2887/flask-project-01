@@ -377,3 +377,39 @@ class GroupService:
         except Exception as e:
             current_app.logger.error(f"Error generating QR code: {str(e)}")
             return None
+
+    @staticmethod
+    def get_audit_logs(group_id: int, page: int = 1, per_page: int = 20) -> List[Dict]:
+        """Get audit logs for a group with pagination"""
+        try:
+            logs = GroupAuditLog.query.filter_by(group_id=group_id)\
+                .order_by(GroupAuditLog.created_at.desc())\
+                .paginate(page=page, per_page=per_page, error_out=False)
+                
+            return [{
+                'id': log.id,
+                'action': log.action,
+                'user': log.user.username,
+                'details': log.details,
+                'created_at': log.created_at.isoformat()
+            } for log in logs.items]
+        except Exception as e:
+            current_app.logger.error(f"Error getting audit logs: {str(e)}")
+            return []
+
+    @staticmethod
+    def get_member_activity(group_id: int) -> List[Dict]:
+        """Get member activity statistics"""
+        try:
+            members = GroupMember.query.filter_by(group_id=group_id).all()
+            return [{
+                'user_id': member.user_id,
+                'username': member.user.username,
+                'joined_at': member.joined_at.isoformat(),
+                'last_active': member.last_active.isoformat() if member.last_active else None,
+                'total_predictions': len(member.user.predictions),
+                'total_points': sum(p.points for p in member.user.predictions if p.points)
+            } for member in members]
+        except Exception as e:
+            current_app.logger.error(f"Error getting member activity: {str(e)}")
+            return []
