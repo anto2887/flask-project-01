@@ -1,96 +1,77 @@
+// TeamSelector.jsx
 import React, { useState, useEffect } from 'react';
-import { getLeagueTeams } from '../../api/matches';
+import { useGroups } from '../../contexts/GroupContext';
 
-export const TeamSelector = ({ selectedLeague, onTeamsSelected }) => {
-   const [teams, setTeams] = useState([]);
-   const [selectedTeams, setSelectedTeams] = useState(new Set());
-   const [loading, setLoading] = useState(false);
-   const [error, setError] = useState(null);
+const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) => {
+  const [teams, setTeams] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const { fetchTeamsForLeague } = useGroups();
 
-   useEffect(() => {
-       const loadTeams = async () => {
-           if (!selectedLeague) return;
-           setLoading(true);
-           setError(null);
-           
-           try {
-               const response = await getLeagueTeams(selectedLeague);
-               if (response.status === 'success' && Array.isArray(response.data)) {
-                   setTeams(response.data);
-               }
-           } catch (err) {
-               console.error('Error loading teams:', err);
-               setError(err.message || 'Failed to load teams');
-               setTeams([]);
-           } finally {
-               setLoading(false);
-           }
-       };
+  useEffect(() => {
+    if (selectedLeague) {
+      loadTeams();
+    }
+  }, [selectedLeague]);
 
-       loadTeams();
-   }, [selectedLeague]);
+  const loadTeams = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetchTeamsForLeague(selectedLeague);
+      if (response.status === 'success') {
+        setTeams(response.data);
+      }
+    } catch (err) {
+      setError('Failed to load teams');
+      console.error('Error loading teams:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-   const toggleTeam = (teamId) => {
-       setSelectedTeams(prev => {
-           const newSet = new Set(prev);
-           if (newSet.has(teamId)) {
-               newSet.delete(teamId);
-           } else {
-               newSet.add(teamId);
-           }
-           
-           // Notify parent component of selected teams
-           if (onTeamsSelected) {
-               onTeamsSelected(Array.from(newSet));
-           }
+  const handleTeamToggle = (teamId) => {
+    const updatedSelection = selectedTeams.includes(teamId)
+      ? selectedTeams.filter(id => id !== teamId)
+      : [...selectedTeams, teamId];
+    onTeamsSelected(updatedSelection);
+  };
 
-           return newSet;
-       });
-   };
+  if (loading) {
+    return <div className="text-center py-4">Loading teams...</div>;
+  }
 
-   if (loading) {
-       return (
-           <div className="p-4 text-center">
-               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto" />
-               <p className="mt-2">Loading teams...</p>
-           </div>
-       );
-   }
+  if (error) {
+    return <div className="text-red-500 py-4">{error}</div>;
+  }
 
-   if (error) {
-       return (
-           <div className="p-4 text-center text-red-600">
-               Error loading teams: {error}
-           </div>
-       );
-   }
-
-   return (
-       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-           {teams.map(team => (
-               <div
-                   key={team.id}
-                   onClick={() => toggleTeam(team.id)}
-                   className={`team-option flex items-center p-2 border rounded cursor-pointer hover:bg-gray-50 ${
-                       selectedTeams.has(team.id) ? 'bg-blue-50 border-blue-500' : ''
-                   }`}
-               >
-                   <input
-                       type="checkbox"
-                       className="mr-2"
-                       checked={selectedTeams.has(team.id)}
-                       onChange={() => toggleTeam(team.id)}
-                       onClick={(e) => e.stopPropagation()}
-                   />
-                   <img
-                       src={team.logo}
-                       alt={`${team.name} logo`}
-                       className="w-12 h-12 object-contain"
-                       onError={(e) => e.target.style.display = 'none'}
-                   />
-                   <span className="ml-2">{team.name}</span>
-               </div>
-           ))}
-       </div>
-   );
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      {teams.map(team => (
+        <div
+          key={team.id}
+          className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors
+            ${selectedTeams.includes(team.id) 
+              ? 'border-blue-500 bg-blue-50' 
+              : 'border-gray-200 hover:border-blue-300'}`}
+          onClick={() => handleTeamToggle(team.id)}
+        >
+          <input
+            type="checkbox"
+            checked={selectedTeams.includes(team.id)}
+            onChange={() => handleTeamToggle(team.id)}
+            className="mr-3"
+          />
+          <img
+            src={team.logo}
+            alt={`${team.name} logo`}
+            className="w-8 h-8 object-contain mr-2"
+          />
+          <span className="font-medium text-gray-700">{team.name}</span>
+        </div>
+      ))}
+    </div>
+  );
 };
+
+export default TeamSelector;

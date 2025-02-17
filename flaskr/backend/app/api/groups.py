@@ -7,6 +7,7 @@ from app.models import Group, GroupPrivacyType, MemberRole, db
 from app.services.group_service import GroupService
 from app.services.permission_service import PermissionService
 from app.services.analytics_service import AnalyticsService
+from app.services.team_service import TeamService
 
 bp = Blueprint('groups', __name__, url_prefix='/groups')
 
@@ -42,7 +43,9 @@ def create_group():
             'data': {
                 'group_id': group.id,
                 'name': group.name,
-                'invite_code': group.invite_code
+                'league': group.league,
+                'invite_code': group.invite_code,
+                'tracked_teams': GroupService.get_tracked_teams(group.id)
             }
         })
 
@@ -51,6 +54,44 @@ def create_group():
         return jsonify({
             'status': 'error',
             'message': 'Error creating group'
+        }), HTTPStatus.INTERNAL_SERVER_ERROR
+
+@bp.route('/teams/<league>', methods=['GET'])
+@login_required_api
+def get_teams_by_league(league):
+    """Get available teams for a league."""
+    try:
+        team_service = current_app.config.get('TEAM_SERVICE')
+        if not team_service:
+            return jsonify({
+                'status': 'error',
+                'message': 'Team service not initialized'
+            }), HTTPStatus.INTERNAL_SERVER_ERROR
+
+        # Validate league
+        valid_leagues = {
+            "PL": "Premier League",
+            "LL": "La Liga",
+            "UCL": "UEFA Champions League"
+        }
+        
+        if league not in valid_leagues:
+            return jsonify({
+                'status': 'error',
+                'message': 'Invalid league selected'
+            }), HTTPStatus.BAD_REQUEST
+
+        teams = team_service.get_league_teams(valid_leagues[league])
+        return jsonify({
+            'status': 'success',
+            'data': teams
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching teams: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Error fetching teams'
         }), HTTPStatus.INTERNAL_SERVER_ERROR
 
 @bp.route('', methods=['GET'])
@@ -122,7 +163,8 @@ def get_group(group_id):
                     (mr.role.value for mr in group.member_roles if mr.user_id == current_user.id),
                     None
                 ),
-                'analytics': analytics
+                'analytics': analytics,
+                'tracked_teams': GroupService.get_tracked_teams(group_id)
             }
         })
 
@@ -158,7 +200,12 @@ def update_group(group_id):
         if 'privacy_type' in data:
             group.privacy_type = GroupPrivacyType[data['privacy_type']]
         if 'tracked_teams' in data:
-            GroupService.update_tracked_teams(group_id, data['tracked_teams'])
+            success, error = GroupService.update_tracked_teams(group_id, data['tracked_teams'])
+            if not success:
+                return jsonify({
+                    'status': 'error',
+                    'message': error
+                }), HTTPStatus.BAD_REQUEST
 
         db.session.commit()
 

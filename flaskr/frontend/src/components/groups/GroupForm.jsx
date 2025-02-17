@@ -1,150 +1,138 @@
-import React, { useState } from 'react';
+// GroupForm.jsx
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TeamSelector } from './TeamSelector';
-import { createGroup } from '../../api/groups';
+import { useGroups } from '../../contexts/GroupContext';
+import { useNotifications } from '../../contexts/NotificationContext';
+import TeamSelector from './TeamSelector';
+import LoadingSpinner from '../common/LoadingSpinner';
 
-export const GroupForm = () => {
-    const [formData, setFormData] = useState({
-        name: '',
-        league: '',
-        privacy_type: 'PRIVATE',
-        description: '',
-        tracked_teams: []
-    });
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const navigate = useNavigate();
+const GroupForm = () => {
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState({
+    name: '',
+    league: '',
+    tracked_teams: []
+  });
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { createGroup } = useGroups();
+  const { showSuccess, showError } = useNotifications();
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
-    };
+  const leagues = [
+    { id: 'PL', name: 'Premier League' },
+    { id: 'LL', name: 'La Liga' },
+    { id: 'UCL', name: 'Champions League' }
+  ];
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError(null);
-        setLoading(true);
+  const handleLeagueSelect = (leagueId) => {
+    setFormData(prev => ({
+      ...prev,
+      league: leagueId,
+      tracked_teams: [] // Reset teams when league changes
+    }));
+    setStep(2);
+  };
 
-        try {
-            const response = await createGroup(formData);
-            if (response.status === 'success') {
-                navigate(`/groups/${response.data.group_id}`);
-            }
-        } catch (err) {
-            setError(err.message || 'Failed to create group');
-        } finally {
-            setLoading(false);
-        }
-    };
+  const handleTeamsSelected = (teams) => {
+    setFormData(prev => ({
+      ...prev,
+      tracked_teams: teams
+    }));
+  };
 
-    return (
-        <form id="createGroupForm" className="space-y-6" onSubmit={handleSubmit}>
-            <div className="form-group">
-                <label htmlFor="name" className="block text-[#05445E] font-medium mb-2">
-                    Group Name
-                </label>
-                <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    className="w-full p-2 border rounded"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    required
-                />
-            </div>
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.league || formData.tracked_teams.length === 0) {
+      showError('Please fill in all required fields');
+      return;
+    }
 
-            <div className="form-group">
-                <label className="block text-[#05445E] font-medium mb-2">
-                    Select League
-                </label>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    {['Premier League', 'La Liga', 'UEFA Champions League'].map(league => (
-                        <label key={league} className="flex items-center space-x-3 p-4 border rounded hover:bg-[#75E6DA] cursor-pointer">
-                            <input
-                                type="radio"
-                                name="league"
-                                value={league}
-                                checked={formData.league === league}
-                                onChange={handleInputChange}
-                                required
-                            />
-                            <span>{league}</span>
-                        </label>
-                    ))}
-                </div>
-            </div>
+    setLoading(true);
+    try {
+      const response = await createGroup(formData);
+      if (response.status === 'success') {
+        showSuccess('Group created successfully');
+        navigate(`/groups/${response.data.group_id}/invite`);
+      }
+    } catch (error) {
+      showError(error.message || 'Failed to create group');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            <div className="form-group">
-                <label className="block text-[#05445E] font-medium mb-2">
-                    Select Teams to Track
-                </label>
-                <TeamSelector 
-                    selectedLeague={formData.league}
-                    onTeamsSelected={(teams) => setFormData(prev => ({
-                        ...prev,
-                        tracked_teams: teams
-                    }))}
-                />
-            </div>
+  if (loading) return <LoadingSpinner />;
 
-            <div className="form-group">
-                <label className="block text-[#05445E] font-medium mb-2">
-                    Group Privacy
-                </label>
-                <select
-                    name="privacy_type"
-                    className="w-full p-2 border rounded"
-                    value={formData.privacy_type}
-                    onChange={handleInputChange}
-                    required
-                >
-                    <option value="PRIVATE">Private (Invite code only)</option>
-                    <option value="SEMI_PRIVATE">Semi-Private (Invite code + admin approval)</option>
-                </select>
-            </div>
+  return (
+    <div className="max-w-3xl mx-auto p-6">
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Create League</h1>
+        
+        {/* Step 1: League Name */}
+        <div className={`mb-6 ${step !== 1 && 'hidden'}`}>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            League Name
+          </label>
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Enter league name"
+            required
+          />
+          <button
+            onClick={() => formData.name && setStep(2)}
+            className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+          >
+            Next
+          </button>
+        </div>
 
-            <div className="form-group">
-                <label htmlFor="description" className="block text-[#05445E] font-medium mb-2">
-                    Group Description (Optional)
-                </label>
-                <textarea
-                    id="description"
-                    name="description"
-                    className="w-full p-2 border rounded"
-                    rows="3"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                />
-            </div>
+        {/* Step 2: League Selection */}
+        <div className={`mb-6 ${step !== 2 && 'hidden'}`}>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Select League
+          </label>
+          <div className="grid grid-cols-3 gap-4">
+            {leagues.map(league => (
+              <button
+                key={league.id}
+                onClick={() => handleLeagueSelect(league.id)}
+                className={`p-4 border rounded-lg transition-colors
+                  ${formData.league === league.id 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : 'border-gray-200 hover:border-blue-300'}`}
+              >
+                {league.name}
+              </button>
+            ))}
+          </div>
+        </div>
 
-            <div className="flex justify-between items-center">
-                <button
-                    type="submit"
-                    className={`bg-[#189AB4] text-white px-6 py-2 rounded hover:bg-[#05445E] ${
-                        loading ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    disabled={loading}
-                >
-                    {loading ? 'Creating...' : 'Create Group'}
-                </button>
-                <button 
-                    type="button" 
-                    onClick={() => navigate('/')}
-                    className="text-[#189AB4] hover:text-[#05445E]"
-                >
-                    Cancel
-                </button>
-            </div>
-
-            {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                    <p>{error}</p>
-                </div>
-            )}
-        </form>
-    );
+        {/* Step 3: Team Selection */}
+        <div className={`mb-6 ${step !== 2 || !formData.league ? 'hidden' : ''}`}>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Select Teams to Track
+          </label>
+          <TeamSelector
+            selectedLeague={formData.league}
+            onTeamsSelected={handleTeamsSelected}
+            selectedTeams={formData.tracked_teams}
+          />
+          
+          <button
+            onClick={handleSubmit}
+            disabled={!formData.name || !formData.league || formData.tracked_teams.length === 0}
+            className="mt-6 w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 
+                     disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            Create League
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
+
+export default GroupForm;

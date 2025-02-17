@@ -24,13 +24,34 @@ export const GroupProvider = ({ children }) => {
         }
     }, []);
 
+    const fetchTeamsForLeague = async (leagueId) => {
+        try {
+            const response = await apiClient.get(`/teams/${leagueId}`);
+            if (response.status === 'success') {
+                return response.data;
+            }
+            throw new Error('Failed to fetch teams');
+        } catch (err) {
+            console.error('Error fetching teams:', err);
+            throw err;
+        }
+    };
+
     const createGroup = async (groupData) => {
         try {
             setLoading(true);
-            const response = await apiClient.post('/groups', groupData);
+            const response = await apiClient.post('/groups', {
+                name: groupData.name,
+                league: groupData.league,
+                privacy_type: 'PRIVATE',
+                tracked_teams: groupData.tracked_teams,
+                description: groupData.description || ''
+            });
+            
             if (response.status === 'success') {
+                setCurrentGroup(response.data);
                 setUserGroups(prev => [...prev, response.data]);
-                return response.data;
+                return response;
             }
             throw new Error(response.message || 'Failed to create group');
         } catch (err) {
@@ -108,6 +129,27 @@ export const GroupProvider = ({ children }) => {
         }
     };
 
+    const regenerateInviteCode = async (groupId) => {
+        try {
+            setLoading(true);
+            const response = await apiClient.post(`/groups/${groupId}/regenerate-code`);
+            if (response.status === 'success') {
+                await fetchGroupDetails(groupId);
+                return response.data.invite_code;
+            }
+            throw new Error('Failed to regenerate invite code');
+        } catch (err) {
+            setError(err.message || 'Failed to regenerate invite code');
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const clearError = () => {
+        setError(null);
+    };
+
     return (
         <GroupContext.Provider value={{
             userGroups,
@@ -120,6 +162,9 @@ export const GroupProvider = ({ children }) => {
             fetchGroupDetails,
             fetchGroupMembers,
             manageMember,
+            fetchTeamsForLeague,
+            regenerateInviteCode,
+            clearError,
             clearCurrentGroup: () => setCurrentGroup(null)
         }}>
             {children}

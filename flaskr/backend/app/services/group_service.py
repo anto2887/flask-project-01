@@ -9,11 +9,17 @@ from sqlalchemy.exc import IntegrityError
 
 from app.models import (
     Group, Users, GroupMember, TeamTracker, PendingMembership, GroupAuditLog,
-    GroupPrivacyType, MemberRole, MembershipStatus
+    GroupPrivacyType, MemberRole, MembershipStatus, Team
 )
 from app.db import db
 
 class GroupService:
+    VALID_LEAGUES = {
+        "PL": "Premier League",
+        "LL": "La Liga",
+        "UCL": "UEFA Champions League"
+    }
+
     @staticmethod
     def generate_invite_code() -> str:
         """Generate a unique 8-character invite code."""
@@ -79,12 +85,19 @@ class GroupService:
         privacy_type: GroupPrivacyType = GroupPrivacyType.PRIVATE,
         description: Optional[str] = None,
         tracked_team_ids: Optional[List[int]] = None
-    ) -> Tuple[Group, str]:
-        """
-        Create a new group and set up initial structure.
-        Returns tuple of (group, error_message)
-        """
+    ) -> Tuple[Optional[Group], Optional[str]]:
+        """Create a new group with tracking details."""
         try:
+            # Validate league format
+            if league not in ["Premier League", "La Liga", "UEFA Champions League"]:
+                return None, "Invalid league selected"
+
+            # Validate tracked teams exist
+            if tracked_team_ids:
+                existing_teams = Team.query.filter(Team.id.in_(tracked_team_ids)).all()
+                if len(existing_teams) != len(tracked_team_ids):
+                    return None, "One or more selected teams are invalid"
+
             # Create group
             group = Group(
                 name=name,
@@ -92,16 +105,18 @@ class GroupService:
                 creator_id=creator_id,
                 invite_code=GroupService.generate_invite_code(),
                 privacy_type=privacy_type,
-                description=description
+                description=description,
+                created=datetime.now(timezone.utc)
             )
             db.session.add(group)
-            db.session.flush()  # Get group ID without committing
+            db.session.flush()  # Get group ID
 
             # Add creator as admin
             member = GroupMember(
                 group_id=group.id,
                 user_id=creator_id,
-                role=MemberRole.ADMIN
+                role=MemberRole.ADMIN,
+                joined_at=datetime.now(timezone.utc)
             )
             db.session.add(member)
 
@@ -110,7 +125,8 @@ class GroupService:
                 for team_id in tracked_team_ids:
                     tracker = TeamTracker(
                         group_id=group.id,
-                        team_id=team_id
+                        team_id=team_id,
+                        added_at=datetime.now(timezone.utc)
                     )
                     db.session.add(tracker)
 
@@ -122,8 +138,10 @@ class GroupService:
                 details={
                     "name": name,
                     "league": league,
+                    "tracked_teams": tracked_team_ids,
                     "privacy_type": privacy_type.value
-                }
+                },
+                created_at=datetime.now(timezone.utc)
             )
             db.session.add(audit_log)
 
@@ -141,10 +159,7 @@ class GroupService:
 
     @staticmethod
     def join_group(invite_code: str, user_id: int) -> Tuple[bool, str]:
-        """
-        Process a group join request.
-        Returns tuple of (success, message)
-        """
+        """Process a group join request."""
         try:
             group = Group.query.filter_by(invite_code=invite_code).first()
             if not group:
@@ -171,7 +186,8 @@ class GroupService:
                 # Create pending membership
                 pending = PendingMembership(
                     group_id=group.id,
-                    user_id=user_id
+                    user_id=user_id,
+                    requested_at=datetime.now(timezone.utc)
                 )
                 db.session.add(pending)
                 message = "Join request sent to group admin"
@@ -180,7 +196,9 @@ class GroupService:
                 member = GroupMember(
                     group_id=group.id,
                     user_id=user_id,
-                    role=MemberRole.MEMBER
+                    role=MemberRole.MEMBER,
+                    joined_at=datetime.now(timezone.utc),
+                    last_active=datetime.now(timezone.utc)
                 )
                 db.session.add(member)
                 message = "Successfully joined group"
@@ -192,7 +210,8 @@ class GroupService:
                 action="JOIN_REQUEST",
                 details={
                     "status": "PENDING" if group.privacy_type == GroupPrivacyType.SEMI_PRIVATE else "APPROVED"
-                }
+                },
+                created_at=datetime.now(timezone.utc)
             )
             db.session.add(audit_log)
 
@@ -205,66 +224,106 @@ class GroupService:
             return False, "An error occurred while processing your request"
 
     @staticmethod
-    def process_join_request(
-        request_id: int,
-        admin_id: int,
-        approved: bool
-    ) -> Tuple[bool, str]:
-        """Process a pending join request."""
+    def update_tracked_teams(group_id: int, team_ids: List[int]) -> Tuple[bool, Optional[str]]:
+        """Update tracked teams for a group."""
         try:
-            request = PendingMembership.query.get(request_id)
-            if not request:
-                return False, "Invalid request"
+            # Validate teams exist
+            existing_teams = Team.query.filter(Team.id.in_(team_ids)).all()
+            if len(existing_teams) != len(team_ids):
+                return False, "One or more selected teams are invalid"
 
-            # Verify admin has permission
-            admin_member = GroupMember.query.filter_by(
-                group_id=request.group_id,
-                user_id=admin_id,
-                role=MemberRole.ADMIN
-            ).first()
-            if not admin_member:
-                return False, "Unauthorized"
+            # Clear existing tracked teams
+            TeamTracker.query.filter_by(group_id=group_id).delete()
 
-            if approved:
-                # Create group membership
-                member = GroupMember(
-                    group_id=request.group_id,
-                    user_id=request.user_id,
-                    role=MemberRole.MEMBER
+            # Add new tracked teams
+            for team_id in team_ids:
+                tracker = TeamTracker(
+                    group_id=group_id,
+                    team_id=team_id,
+                    added_at=datetime.now(timezone.utc)
                 )
-                db.session.add(member)
-                request.status = MembershipStatus.APPROVED
-                message = "Request approved"
-            else:
-                request.status = MembershipStatus.REJECTED
-                message = "Request rejected"
+                db.session.add(tracker)
 
-            request.processed_at = datetime.now(timezone.utc)
-            request.processed_by = admin_id
+            db.session.commit()
+            return True, None
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error updating tracked teams: {str(e)}")
+            return False, "Failed to update tracked teams"
 
-            # Log action
+    @staticmethod
+    def get_tracked_teams(group_id: int) -> List[int]:
+        """Get list of tracked team IDs for a group."""
+        try:
+            trackers = TeamTracker.query.filter_by(group_id=group_id).all()
+            return [tracker.team_id for tracker in trackers]
+        except Exception as e:
+            current_app.logger.error(f"Error getting tracked teams: {str(e)}")
+            return []
+
+    @staticmethod
+    def remove_member(group_id: int, user_id: int) -> Tuple[bool, str]:
+        """Remove a member from the group."""
+        try:
+            member = GroupMember.query.filter_by(
+                group_id=group_id,
+                user_id=user_id
+            ).first()
+
+            if not member:
+                return False, "Member not found"
+
+            if member.role == MemberRole.ADMIN:
+                return False, "Cannot remove admin"
+
+            db.session.delete(member)
+
+            # Log removal
             audit_log = GroupAuditLog(
-                group_id=request.group_id,
-                user_id=admin_id,
-                action="PROCESS_JOIN_REQUEST",
-                details={
-                    "request_id": request_id,
-                    "user_id": request.user_id,
-                    "status": "APPROVED" if approved else "REJECTED"
-                }
+                group_id=group_id,
+                user_id=user_id,
+                action="MEMBER_REMOVED",
+                created_at=datetime.now(timezone.utc)
             )
             db.session.add(audit_log)
 
             db.session.commit()
-            return True, message
+            return True, "Member removed successfully"
 
         except Exception as e:
             db.session.rollback()
-            current_app.logger.error(f"Error processing join request: {str(e)}")
-            return False, "An error occurred while processing the request"
+            current_app.logger.error(f"Error removing member: {str(e)}")
+            return False, "Failed to remove member"
 
     @staticmethod
-    def generate_qr_code(invite_code: str) -> bytes:
+    def regenerate_invite_code(group_id: int) -> Optional[str]:
+        """Regenerate invite code for a group."""
+        try:
+            group = Group.query.get(group_id)
+            if not group:
+                return None
+
+            new_code = GroupService.generate_invite_code()
+            group.invite_code = new_code
+
+            # Log regeneration
+            audit_log = GroupAuditLog(
+                group_id=group_id,
+                user_id=group.creator_id,
+                action="REGENERATE_INVITE_CODE",
+                created_at=datetime.now(timezone.utc)
+            )
+            db.session.add(audit_log)
+
+            db.session.commit()
+            return new_code
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error regenerating invite code: {str(e)}")
+            return None
+
+    @staticmethod
+    def generate_qr_code(invite_code: str) -> Optional[bytes]:
         """Generate QR code for invite link."""
         try:
             qr = qrcode.QRCode(
@@ -283,105 +342,4 @@ class GroupService:
 
         except Exception as e:
             current_app.logger.error(f"Error generating QR code: {str(e)}")
-            return None
-
-    @staticmethod
-    def bulk_member_action(
-        group_id: int,
-        admin_id: int,
-        user_ids: List[int],
-        action: str
-    ) -> Tuple[bool, str, Dict]:
-        """
-        Perform bulk actions on group members.
-        Actions: REMOVE, PROMOTE_MODERATOR, REMOVE_MODERATOR
-        Returns: (success, message, results)
-        """
-        try:
-            # Verify admin permissions
-            admin_member = GroupMember.query.filter_by(
-                group_id=group_id,
-                user_id=admin_id,
-                role=MemberRole.ADMIN
-            ).first()
-            if not admin_member:
-                return False, "Unauthorized", {}
-
-            results = {"successful": [], "failed": []}
-            
-            for user_id in user_ids:
-                try:
-                    member = GroupMember.query.filter_by(
-                        group_id=group_id,
-                        user_id=user_id
-                    ).first()
-                    
-                    if not member:
-                        results["failed"].append({"user_id": user_id, "reason": "Not a member"})
-                        continue
-
-                    if action == "REMOVE":
-                        if member.role == MemberRole.ADMIN:
-                            results["failed"].append({"user_id": user_id, "reason": "Cannot remove admin"})
-                            continue
-                        db.session.delete(member)
-                        
-                    elif action == "PROMOTE_MODERATOR":
-                        if member.role != MemberRole.MEMBER:
-                            results["failed"].append({"user_id": user_id, "reason": "Invalid role change"})
-                            continue
-                        member.role = MemberRole.MODERATOR
-                        
-                    elif action == "REMOVE_MODERATOR":
-                        if member.role != MemberRole.MODERATOR:
-                            results["failed"].append({"user_id": user_id, "reason": "Not a moderator"})
-                            continue
-                        member.role = MemberRole.MEMBER
-
-                    results["successful"].append(user_id)
-                    
-                    # Log action
-                    audit_log = GroupAuditLog(
-                        group_id=group_id,
-                        user_id=admin_id,
-                        action=f"BULK_{action}",
-                        details={
-                            "target_user_id": user_id,
-                            "status": "SUCCESS"
-                        }
-                    )
-                    db.session.add(audit_log)
-
-                except Exception as e:
-                    results["failed"].append({"user_id": user_id, "reason": str(e)})
-
-            db.session.commit()
-            
-            success = len(results["successful"]) > 0
-            message = f"Processed {len(results['successful'])} members successfully"
-            if results["failed"]:
-                message += f", {len(results['failed'])} failed"
-                
-            return success, message, results
-
-        except Exception as e:
-            db.session.rollback()
-            current_app.logger.error(f"Error in bulk member action: {str(e)}")
-            return False, "An error occurred during the operation", {"successful": [], "failed": user_ids}
-
-    @staticmethod
-    def regenerate_invite_code(group_id: int) -> Optional[str]:
-        """Regenerate invite code for a group"""
-        try:
-            group = Group.query.get(group_id)
-            if not group:
-                return None
-
-            new_code = GroupService.generate_invite_code()
-            group.invite_code = new_code
-            db.session.commit()
-            return new_code
-        except Exception as e:
-            db.session.rollback()
-            current_app.logger.error(f"Error regenerating invite code: {str(e)}")
             return None
