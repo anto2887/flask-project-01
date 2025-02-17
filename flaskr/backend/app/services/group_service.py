@@ -24,12 +24,10 @@ class GroupService:
     def generate_invite_code() -> str:
         """Generate a unique 8-character invite code."""
         while True:
-            # Generate code: 4 letters and 4 numbers without hyphen
             letters = ''.join(random.choices(string.ascii_uppercase, k=4))
             numbers = ''.join(random.choices(string.digits, k=4))
-            code = f"{letters}{numbers}"  # 8 chars total (4 letters + 4 numbers)
+            code = f"{letters}{numbers}"
             
-            # Check if code already exists
             if not Group.query.filter_by(invite_code=code).first():
                 return code
 
@@ -88,17 +86,14 @@ class GroupService:
     ) -> Tuple[Optional[Group], Optional[str]]:
         """Create a new group with tracking details."""
         try:
-            # Validate league format
             if league not in ["Premier League", "La Liga", "UEFA Champions League"]:
                 return None, "Invalid league selected"
 
-            # Validate tracked teams exist
             if tracked_team_ids:
                 existing_teams = Team.query.filter(Team.id.in_(tracked_team_ids)).all()
                 if len(existing_teams) != len(tracked_team_ids):
                     return None, "One or more selected teams are invalid"
 
-            # Create group
             group = Group(
                 name=name,
                 league=league,
@@ -109,9 +104,8 @@ class GroupService:
                 created=datetime.now(timezone.utc)
             )
             db.session.add(group)
-            db.session.flush()  # Get group ID
+            db.session.flush()
 
-            # Add creator as admin
             member = GroupMember(
                 group_id=group.id,
                 user_id=creator_id,
@@ -120,7 +114,6 @@ class GroupService:
             )
             db.session.add(member)
 
-            # Add tracked teams
             if tracked_team_ids:
                 for team_id in tracked_team_ids:
                     tracker = TeamTracker(
@@ -130,7 +123,6 @@ class GroupService:
                     )
                     db.session.add(tracker)
 
-            # Log creation
             audit_log = GroupAuditLog(
                 group_id=group.id,
                 user_id=creator_id,
@@ -158,6 +150,50 @@ class GroupService:
             return None, "An error occurred while creating the group"
 
     @staticmethod
+    def is_group_admin(user_id: int, group_id: int) -> bool:
+        """Check if user is admin of the group"""
+        member = GroupMember.query.filter_by(
+            group_id=group_id,
+            user_id=user_id
+        ).first()
+        return member and member.role == MemberRole.ADMIN
+
+    @staticmethod
+    def update_member_role(group_id: int, user_id: int, new_role: MemberRole) -> Tuple[bool, str]:
+        """Update a member's role in the group"""
+        try:
+            member = GroupMember.query.filter_by(
+                group_id=group_id,
+                user_id=user_id
+            ).first()
+
+            if not member:
+                return False, "Member not found"
+
+            if member.role == MemberRole.ADMIN:
+                return False, "Cannot modify admin role"
+
+            audit_log = GroupAuditLog(
+                group_id=group_id,
+                user_id=user_id,
+                action="ROLE_UPDATED",
+                details={"new_role": new_role.value},
+                created_at=datetime.now(timezone.utc)
+            )
+            db.session.add(audit_log)
+
+            member.role = new_role
+            member.last_active = datetime.now(timezone.utc)
+            db.session.commit()
+
+            return True, f"Role updated to {new_role.value}"
+
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error updating member role: {str(e)}")
+            return False, "Failed to update role"
+
+    @staticmethod
     def join_group(invite_code: str, user_id: int) -> Tuple[bool, str]:
         """Process a group join request."""
         try:
@@ -165,7 +201,6 @@ class GroupService:
             if not group:
                 return False, "Invalid invite code"
 
-            # Check if user is already a member
             existing_member = GroupMember.query.filter_by(
                 group_id=group.id,
                 user_id=user_id
@@ -173,7 +208,6 @@ class GroupService:
             if existing_member:
                 return False, "Already a member of this group"
 
-            # Check for pending request
             pending = PendingMembership.query.filter_by(
                 group_id=group.id,
                 user_id=user_id,
@@ -183,7 +217,6 @@ class GroupService:
                 return False, "Join request already pending"
 
             if group.privacy_type == GroupPrivacyType.SEMI_PRIVATE:
-                # Create pending membership
                 pending = PendingMembership(
                     group_id=group.id,
                     user_id=user_id,
@@ -192,7 +225,6 @@ class GroupService:
                 db.session.add(pending)
                 message = "Join request sent to group admin"
             else:
-                # Direct join for private groups
                 member = GroupMember(
                     group_id=group.id,
                     user_id=user_id,
@@ -203,7 +235,6 @@ class GroupService:
                 db.session.add(member)
                 message = "Successfully joined group"
 
-            # Log join attempt
             audit_log = GroupAuditLog(
                 group_id=group.id,
                 user_id=user_id,
@@ -227,15 +258,12 @@ class GroupService:
     def update_tracked_teams(group_id: int, team_ids: List[int]) -> Tuple[bool, Optional[str]]:
         """Update tracked teams for a group."""
         try:
-            # Validate teams exist
             existing_teams = Team.query.filter(Team.id.in_(team_ids)).all()
             if len(existing_teams) != len(team_ids):
                 return False, "One or more selected teams are invalid"
 
-            # Clear existing tracked teams
             TeamTracker.query.filter_by(group_id=group_id).delete()
 
-            # Add new tracked teams
             for team_id in team_ids:
                 tracker = TeamTracker(
                     group_id=group_id,
@@ -243,6 +271,14 @@ class GroupService:
                     added_at=datetime.now(timezone.utc)
                 )
                 db.session.add(tracker)
+
+            audit_log = GroupAuditLog(
+                group_id=group_id,
+                action="UPDATE_TRACKED_TEAMS",
+                details={"team_ids": team_ids},
+                created_at=datetime.now(timezone.utc)
+            )
+            db.session.add(audit_log)
 
             db.session.commit()
             return True, None
@@ -276,9 +312,6 @@ class GroupService:
             if member.role == MemberRole.ADMIN:
                 return False, "Cannot remove admin"
 
-            db.session.delete(member)
-
-            # Log removal
             audit_log = GroupAuditLog(
                 group_id=group_id,
                 user_id=user_id,
@@ -287,7 +320,9 @@ class GroupService:
             )
             db.session.add(audit_log)
 
+            db.session.delete(member)
             db.session.commit()
+
             return True, "Member removed successfully"
 
         except Exception as e:
@@ -306,7 +341,6 @@ class GroupService:
             new_code = GroupService.generate_invite_code()
             group.invite_code = new_code
 
-            # Log regeneration
             audit_log = GroupAuditLog(
                 group_id=group_id,
                 user_id=group.creator_id,
