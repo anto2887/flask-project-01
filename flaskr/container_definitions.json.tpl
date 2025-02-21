@@ -106,6 +106,14 @@
       {
         "name": "PYTHONUNBUFFERED",
         "value": "1"
+      },
+      {
+        "name": "REDIS_HOST",
+        "value": "${redis_endpoint}"
+      },
+      {
+        "name": "REDIS_PORT",
+        "value": "6379"
       }
     ],
     "secrets": [
