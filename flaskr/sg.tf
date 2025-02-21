@@ -102,3 +102,28 @@ resource "aws_security_group" "flaskr_bastion_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
+
+# Security group for Redis
+resource "aws_security_group" "redis_sg" {
+  name        = "flaskr-redis-sg"
+  description = "Security group for Redis cluster"
+  vpc_id      = aws_vpc.flaskr_vpc.id
+
+  ingress {
+    from_port       = 6379
+    to_port         = 6379
+    protocol        = "tcp"
+    security_groups = [aws_security_group.flaskr_ecs_sg.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "flaskr-redis-sg"
+  }
+}
