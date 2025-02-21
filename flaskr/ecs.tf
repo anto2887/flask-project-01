@@ -52,6 +52,35 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_secrets_policy" {
   policy_arn = aws_iam_policy.secrets_access_policy.arn
 }
 
+# Attach the CloudWatch permissions to the ECS task execution role
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_cloudwatch_policy" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"  # You might want to create a more restrictive policy
+}
+
+# Optional: Create a more restrictive CloudWatch policy
+resource "aws_iam_policy" "cloudwatch_policy" {
+  name        = "flaskr_cloudwatch_policy"
+  description = "Policy for CloudWatch Logs access"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams"
+        ],
+        Resource = [
+          "${aws_cloudwatch_log_group.ecs_log_group.arn}:*"
+        ]
+      }
+    ]
+  })
+}
+
 # Define IAM policy for Secrets Manager access
 resource "aws_iam_policy" "secrets_access_policy" {
   name        = "flaskr_secrets_access_policy"
