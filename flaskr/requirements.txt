@@ -1,3 +1,4 @@
+apscheduler>=3.9.0
 blinker==1.6.3
 boto3==1.26.90
 botocore>=1.29.0
@@ -22,8 +23,10 @@ nodejs>=18.0.0
 npm>=9.0.0
 numpy==1.26.1
 pandas==2.1.1
+psutil>=5.8.0
 psycopg2-binary==2.9.9
 python-dateutil==2.8.2
+python-json-logger>=2.0.0
 python-Levenshtein==0.23.0
 pytz==2023.3.post1
 qrcode==8.0
