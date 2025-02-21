@@ -33,13 +33,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     CREATE_TABLES_ON_STARTUP=True \
     TZ=America/Chicago
 
-# Install runtime dependencies
+# Install runtime dependencies and Node.js
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
     unzip \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && node --version \
+    && npm --version
 
 WORKDIR /flaskr
 
