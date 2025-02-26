@@ -53,16 +53,15 @@ WORKDIR /flaskr
 # Copy installed dependencies from builder stage
 COPY --from=builder /root/.local /root/.local
 
-# Copy scripts first (they change less frequently)
-COPY wait-for-it.sh /usr/local/bin/
-COPY entrypoint.sh ./
-RUN chmod +x /usr/local/bin/wait-for-it.sh ./entrypoint.sh && \
-    mkdir -p /flaskr/logs && \
-    chmod 777 /flaskr/logs
-
 # Copy application files
 COPY . .
 
+# Make sure the entrypoint script is executable
+RUN chmod +x ./entrypoint.sh && \
+    mkdir -p /flaskr/logs && \
+    chmod 777 /flaskr/logs
+
 EXPOSE 5000
 
+# Use the correct entrypoint script
 ENTRYPOINT ["./entrypoint.sh"]
