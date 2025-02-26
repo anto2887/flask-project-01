@@ -19,8 +19,8 @@ FROM nginx:alpine
 # Copy built files from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Install curl for health checks (no need for AWS CLI in the container)
-RUN apk add --no-cache curl
+# Install curl and openssl for health checks and SSL certificate generation
+RUN apk add --no-cache curl openssl
 
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
