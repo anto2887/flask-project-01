@@ -57,7 +57,8 @@
       {"name": "SQLALCHEMY_DATABASE_URI", "value": "${sqlalchemy_database_uri}"},
       {"name": "REDIS_HOST", "value": "${redis_endpoint}"},
       {"name": "REDIS_PORT", "value": "6379"},
-      {"name": "CREATE_TABLES_ON_STARTUP", "value": "True"}
+      {"name": "CREATE_TABLES_ON_STARTUP", "value": "True"},
+      {"name": "SECRET_NAME", "value": "api-football-key"}
     ],
     "secrets": [
       {
