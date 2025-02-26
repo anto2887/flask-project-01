@@ -6,11 +6,15 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:80"
+      - "80:80"   # Redirect HTTP to HTTPS
+      - "443:443" # HTTPS port
     depends_on:
       - backend
     environment:
-      - REACT_APP_API_URL=http://backend:5000
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - ACM_CERTIFICATE_ARN=${ACM_CERTIFICATE_ARN}
     networks:
       - flaskr-network
 
@@ -18,21 +22,19 @@ services:
     build: 
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "5000:5000"
+    expose:
+      - "5000"
     depends_on:
       - db
       - redis
     environment:
-      - FLASK_ENV=development
+      - FLASK_ENV=production
       - SQLALCHEMY_DATABASE_URI=postgresql://postgres:password@db:5432/flaskrdb
       - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - SECRET_NAME=${SECRET_NAME}
     volumes:
-      - ./backend:/flaskr
       - ./logs:/flaskr/logs
     networks:
       - flaskr-network
@@ -50,8 +52,6 @@ services:
 
   redis:
     image: redis:6-alpine
-    ports:
-      - "6379:6379"
     networks:
       - flaskr-network
 

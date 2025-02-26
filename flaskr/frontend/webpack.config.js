@@ -54,7 +54,10 @@ module.exports = {
       directory: path.join(__dirname, 'public')
     },
     proxy: {
-      '/api': 'http://backend:5000'
+      '/api': {
+        target: 'http://backend:5000',
+        changeOrigin: true
+      }
     }
   }
 };
