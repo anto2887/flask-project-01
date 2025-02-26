@@ -43,7 +43,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && node --version \
-    && npm --version
+    && npm --version \
+    && npm install lucide-react
 
 WORKDIR /flaskr
 
