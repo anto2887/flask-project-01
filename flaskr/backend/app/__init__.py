@@ -52,6 +52,7 @@ def init_services(app):
             from app.services.football_api import FootballAPIService
             from app.services.match_monitor import MatchMonitorService
             from app.services.task_scheduler import TaskScheduler
+            from app.services.score_processing import ScoreProcessingService
             from app.models import MatchStatus, GroupPrivacyType, MemberRole, PredictionStatus
             
             app.logger.info("Starting API services initialization...")
@@ -75,6 +76,13 @@ def init_services(app):
             # Store services in app config for global access
             app.config['FOOTBALL_API_SERVICE'] = football_api
             app.config['TEAM_SERVICE'] = team_service
+            
+            # Initialize score processor based on environment variable
+            processor_type = os.environ.get('SCORE_PROCESSOR_TYPE', 'default')
+            app.logger.info(f"Initializing ScoreProcessingService with type: {processor_type}")
+            score_processor = ScoreProcessingService(processor_type)
+            app.config['SCORE_PROCESSOR'] = score_processor
+            app.logger.info("ScoreProcessingService initialized successfully")
             
             # Initialize match monitoring
             match_monitor = MatchMonitorService(

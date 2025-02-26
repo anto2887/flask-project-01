@@ -58,7 +58,8 @@
       {"name": "REDIS_HOST", "value": "${redis_endpoint}"},
       {"name": "REDIS_PORT", "value": "6379"},
       {"name": "CREATE_TABLES_ON_STARTUP", "value": "True"},
-      {"name": "SECRET_NAME", "value": "api-football-key"}
+      {"name": "SECRET_NAME", "value": "api-football-key"},
+      {"name": "SCORE_PROCESSOR_TYPE", "value": "default"}
     ],
     "secrets": [
       {
