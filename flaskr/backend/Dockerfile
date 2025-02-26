@@ -40,13 +40,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     redis-tools \
     curl \
     unzip \
-    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
-    && apt-get install -y nodejs \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && node --version \
-    && npm --version \
-    && npm install lucide-react
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /flaskr
 
