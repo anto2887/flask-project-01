@@ -236,24 +236,32 @@ def create_app(test_config=None):
             return jsonify({'status': 'error', 'message': 'Service Unavailable'}), 503
 
     try:
+        # Register web blueprints
+        from app.api.group_routes import group_bp
+        # ... other web blueprints ...
+        
+        app.register_blueprint(group_bp, url_prefix='/groups')
+        # ... register other web blueprints ...
+        
         # Register API blueprints with /api prefix
         from app.api.auth import bp as auth_bp
-        from app.api.group_routes import group_bp
+        from app.api.group_api import group_api_bp
         from app.api.matches import bp as matches_bp
         from app.api.predictions import bp as predictions_bp
         from app.api.users import bp as users_bp
         
         app.register_blueprint(auth_bp, url_prefix='/api/auth')
-        app.register_blueprint(group_bp, url_prefix='/api/groups')
+        app.register_blueprint(group_api_bp, url_prefix='/api/groups')
         app.register_blueprint(matches_bp, url_prefix='/api/matches')
         app.register_blueprint(predictions_bp, url_prefix='/api/predictions')
         app.register_blueprint(users_bp, url_prefix='/api/users')
         
         # Register error handlers
-        from app.error_handlers import register_api_error_handlers
+        from app.error_handlers import register_api_error_handlers, register_error_handlers
         register_api_error_handlers(app)
+        register_error_handlers(app)
         
-        app.logger.info("All API blueprints registered successfully")
+        app.logger.info("All blueprints registered successfully")
     except ImportError as e:
         app.logger.error(f"Error importing modules: {str(e)}", exc_info=True)
         raise
