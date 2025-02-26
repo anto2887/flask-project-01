@@ -4,18 +4,18 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 // Auth Components
-import { Login } from '../components/auth/Login';
-import { Register } from '../components/auth/Register';
+import Login from '../components/auth/Login';
+import Register from '../components/auth/Register';
 
 // Route Groups
-import { PublicRoutes } from './PublicRoutes';
-import { PrivateRoutes } from './PrivateRoutes';
-import { DashboardRoutes } from './DashboardRoutes';
-import { PredictionRoutes } from './PredictionRoutes';
-import { GroupRoutes } from './GroupRoutes';
+import PublicRoutes from './PublicRoutes';
+import PrivateRoutes from './PrivateRoutes';
+import DashboardRoutes from './DashboardRoutes';
+import PredictionRoutes from './PredictionRoutes';
+import GroupRoutes from './GroupRoutes';
 
 // Error Page
-import { NotFound } from '../components/common/ErrorPages';
+import { Error404 as NotFound } from '../components/common/ErrorPages';
 
 const AppRoutes = () => {
   const { isAuthenticated } = useAuth();

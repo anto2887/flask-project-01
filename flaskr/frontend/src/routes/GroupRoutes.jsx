@@ -1,4 +1,4 @@
-// GroupRoutes.jsx
+// src/routes/GroupRoutes.jsx
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import GroupForm from '../components/groups/GroupForm';

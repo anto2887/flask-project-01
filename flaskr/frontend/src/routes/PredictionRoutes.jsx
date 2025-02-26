@@ -1,9 +1,9 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { PredictionList } from '../components/predictions/PredictionList';
-import { PredictionForm } from '../components/predictions/PredictionForm';
-import { PredictionHistory } from '../components/predictions/PredictionHistory';
-import { PredictionStats } from '../components/predictions/PredictionStats';
+import PredictionList from '../components/predictions/PredictionList';
+import PredictionForm from '../components/dashboard/PredictionForm';
+import PredictionHistory from '../components/predictions/PredictionHistory';
+import PredictionStats from '../components/predictions/PredictionStats';
 
 export const PredictionRoutes = () => {
   return (
@@ -16,3 +16,5 @@ export const PredictionRoutes = () => {
     </Routes>
   );
 };
+
+export default PredictionRoutes;

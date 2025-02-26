@@ -65,3 +65,5 @@ export const AlertDialogAction = ({ children, className = "", ...props }) => {
     </button>
   );
 };
+
+export default Alert;

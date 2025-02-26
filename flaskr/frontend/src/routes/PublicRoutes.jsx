@@ -12,3 +12,5 @@ export const PublicRoutes = () => {
 
   return <Outlet />;
 };
+
+export default PublicRoutes;
