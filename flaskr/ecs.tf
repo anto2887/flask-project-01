@@ -2,14 +2,9 @@ resource "aws_ecs_cluster" "flaskr_ecs_cluster" {
   name = "flaskr-ecs-cluster"
 }
 
-# Create a random ID for the secret suffix
-resource "random_id" "secret_suffix" {
-  byte_length = 8
-}
-
-# Create a new secret or use an existing one
+# Create a new secret with a fixed name instead of random suffix
 resource "aws_secretsmanager_secret" "api_football_key" {
-  name = "football_api_key_${random_id.secret_suffix.hex}"
+  name = "api-football-key"  # Use a fixed name that matches what your app expects
 
   lifecycle {
     create_before_destroy = true
@@ -73,7 +68,6 @@ resource "aws_iam_policy" "secrets_access_policy" {
   })
 }
 
-
 # Define ECS task role
 resource "aws_iam_role" "ecs_task_role" {
   name = "flaskr_ecs_task_role"
@@ -109,7 +103,7 @@ locals {
   # Container definitions populated from a template file
   container_definitions = templatefile("${path.module}/container_definitions.json.tpl", {
     frontend_image          = "193482034911.dkr.ecr.us-east-1.amazonaws.com/flaskr-frontend:latest"
-    backend_image          = "193482034911.dkr.ecr.us-east-1.amazonaws.com/flaskr-backend:latest"
+    backend_image           = "193482034911.dkr.ecr.us-east-1.amazonaws.com/flaskr-backend:latest"
     awslogs_group           = "/ecs/flaskr-app"
     awslogs_region          = var.region
     awslogs_stream_prefix   = "ecs"
@@ -120,7 +114,7 @@ locals {
     sqlalchemy_database_uri = local.sqlalchemy_database_uri
     api_football_key_arn    = aws_secretsmanager_secret.api_football_key.arn
     api_football_key_name   = aws_secretsmanager_secret.api_football_key.name
-    redis_endpoint         = aws_elasticache_cluster.redis.cache_nodes[0].address
+    redis_endpoint          = aws_elasticache_cluster.redis.cache_nodes[0].address
   })
 }
 
