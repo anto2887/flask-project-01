@@ -33,7 +33,7 @@ fi
 # Initialize database if needed
 if [ "$CREATE_TABLES_ON_STARTUP" = "True" ]; then
     echo "Initializing database..."
-    python -c "from app import create_app; from app.db import db; app = create_app(); app.app_context().push(); db.create_all()"
+    python -c "from app import create_app; from app.models import db; app = create_app(); app.app_context().push(); db.create_all()"
     echo "Database tables created successfully"
 fi
 

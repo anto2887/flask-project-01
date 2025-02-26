@@ -33,9 +33,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     CREATE_TABLES_ON_STARTUP=True \
     TZ=America/Chicago
 
-# Install runtime dependencies and Node.js
+# Install runtime dependencies and tools for database connectivity
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
+    postgresql-client \
+    redis-tools \
     curl \
     unzip \
     && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
