@@ -1,41 +1,42 @@
 # frontend/Dockerfile
-FROM node:18-alpine as build
+FROM node:18-alpine AS build
 
 WORKDIR /app
 
-# Copy package files first for better caching
+# Copy package files and install dependencies
 COPY package*.json ./
-
-# Install dependencies
-RUN npm install
+RUN npm ci
 
 # Copy source code
 COPY . .
 
-# Build the app
+# Build the application
 RUN npm run build
 
 # Production stage
 FROM nginx:alpine
 
-# Install AWS CLI
-RUN apk add --no-cache python3 py3-pip curl unzip && \
-    pip3 install --upgrade pip && \
-    pip3 install awscli && \
-    rm -rf /var/cache/apk/*
+# Copy built files from build stage
+COPY --from=build /app/build /usr/share/nginx/html
 
-# Copy build files from previous stage
-COPY --from=build /app/dist /usr/share/nginx/html
+# Install curl for health checks (no need for AWS CLI in the container)
+RUN apk add --no-cache curl
 
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy certificate fetching script
-COPY fetch-cert.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/fetch-cert.sh
+# Create self-signed SSL certificate for development
+RUN mkdir -p /etc/nginx/certs && \
+    cd /etc/nginx/certs && \
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout server.key -out server.crt \
+    -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
 
 # Expose ports
 EXPOSE 80 443
 
-# Start nginx with certificate fetching
-CMD ["/bin/sh", "-c", "/usr/local/bin/fetch-cert.sh && nginx -g 'daemon off;'"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s CMD curl -f http://localhost/health || exit 1
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
