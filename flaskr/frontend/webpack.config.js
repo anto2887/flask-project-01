@@ -41,7 +41,10 @@ module.exports = {
     })
   ],
   resolve: {
-    extensions: ['.js', '.jsx']
+    extensions: ['.js', '.jsx'],
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+    }
   },
   devServer: {
     historyApiFallback: true,
@@ -49,6 +52,9 @@ module.exports = {
     port: 3000,
     static: {
       directory: path.join(__dirname, 'public')
+    },
+    proxy: {
+      '/api': 'http://backend:5000'
     }
   }
 };
