@@ -135,7 +135,7 @@ resource "aws_lb_listener" "flaskr_app_https_listener" {
   port              = "443"
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = var.acm_certificate_arn
+  certificate_arn   = "arn:aws:acm:us-east-1:193482034911:certificate/6cbb62d4-13f2-411c-9419-fb3bccbab2fe"
 
   default_action {
     type             = "forward"
