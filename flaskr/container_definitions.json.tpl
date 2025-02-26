@@ -32,7 +32,7 @@
     "cpu": 128
   },
   {
-    "name": "flaskr-app",
+    "name": "backend-app",
     "image": "${backend_image}",
     "essential": true,
     "portMappings": [
