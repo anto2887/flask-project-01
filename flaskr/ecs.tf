@@ -109,7 +109,7 @@ locals {
   # Container definitions populated from a template file
   container_definitions = templatefile("${path.module}/container_definitions.json.tpl", {
     frontend_image          = "193482034911.dkr.ecr.us-east-1.amazonaws.com/flaskr-frontend:latest"
-    backend_image          = "193482034911.dkr.ecr.us-east-1.amazonaws.com/flaskr-app:latest"
+    backend_image          = "193482034911.dkr.ecr.us-east-1.amazonaws.com/flaskr-backend:latest"
     awslogs_group           = "/ecs/flaskr-app"
     awslogs_region          = var.region
     awslogs_stream_prefix   = "ecs"
