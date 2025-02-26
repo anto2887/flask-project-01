@@ -77,17 +77,16 @@ def init_services(app):
             app.config['FOOTBALL_API_SERVICE'] = football_api
             app.config['TEAM_SERVICE'] = team_service
             
-            # Initialize score processor based on environment variable
-            processor_type = os.environ.get('SCORE_PROCESSOR_TYPE', 'default')
-            app.logger.info(f"Initializing ScoreProcessingService with type: {processor_type}")
-            score_processor = ScoreProcessingService(processor_type)
+            # Initialize score processor with the football API service
+            app.logger.info("Initializing ScoreProcessingService...")
+            score_processor = ScoreProcessingService(football_api)
             app.config['SCORE_PROCESSOR'] = score_processor
             app.logger.info("ScoreProcessingService initialized successfully")
             
             # Initialize match monitoring
             match_monitor = MatchMonitorService(
-                football_api_service=app.config['FOOTBALL_API_SERVICE'],
-                score_processor=app.config['SCORE_PROCESSOR']
+                football_api_service=football_api,
+                score_processor=score_processor
             )
             
             # Initialize and start task scheduler
