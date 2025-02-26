@@ -29,7 +29,7 @@
       "startPeriod": 60
     },
     "memory": 256,
-    "cpu": 256
+    "cpu": 128
   },
   {
     "name": "flaskr-app",
@@ -140,9 +140,9 @@
     "linuxParameters": {
       "initProcessEnabled": true
     },
-    "memory": 512,
-    "memoryReservation": 256,
-    "cpu": 256,
+    "memory": 256,
+    "memoryReservation": 128,
+    "cpu": 128,
     "privileged": false,
     "readonlyRootFilesystem": false
   }
