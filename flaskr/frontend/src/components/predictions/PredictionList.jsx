@@ -133,3 +133,5 @@ export const PredictionList = () => {
     </MatchAvailabilityCheck>
   );
 };
+
+export default PredictionList;
