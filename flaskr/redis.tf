@@ -1,21 +1,3 @@
-# Security group for Redis
-resource "aws_security_group" "redis_sg" {
-  name        = "flaskr-redis-sg"
-  description = "Security group for Redis cluster"
-  vpc_id      = aws_vpc.flaskr_vpc.id
-
-  ingress {
-    from_port       = 6379
-    to_port         = 6379
-    protocol        = "tcp"
-    security_groups = [aws_security_group.flaskr_ecs_sg.id]
-  }
-
-  tags = {
-    Name = "flaskr-redis-sg"
-  }
-}
-
 # Redis subnet group
 resource "aws_elasticache_subnet_group" "redis_subnet_group" {
   name       = "flaskr-redis-subnet-group"
