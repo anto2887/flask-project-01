@@ -4,7 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { GroupProvider } from './contexts/GroupContext';
 import { MatchProvider } from './contexts/MatchContext';
-import { PredictionProvider } from './contexts/PredictionProvider';
+import { PredictionProvider } from './contexts/PredictionContext';
 import StateProvider from './components/state/StateProvider';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import MainLayout from './components/layout/MainLayout';
