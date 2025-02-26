@@ -17,7 +17,7 @@ RUN npm run build
 FROM nginx:alpine
 
 # Copy built files from build stage
-COPY --from=build /app/build /usr/share/nginx/html
+COPY --from=build /app/dist /usr/share/nginx/html
 
 # Install curl for health checks (no need for AWS CLI in the container)
 RUN apk add --no-cache curl
