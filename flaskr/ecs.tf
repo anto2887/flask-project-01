@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 resource "aws_ecs_cluster" "flaskr_ecs_cluster" {
   name = "flaskr-ecs-cluster"
 }
@@ -90,6 +92,38 @@ resource "aws_iam_role" "ecs_task_role" {
 resource "aws_iam_role_policy_attachment" "ecs_task_secrets_policy" {
   role       = aws_iam_role.ecs_task_role.name
   policy_arn = aws_iam_policy.secrets_access_policy.arn
+}
+
+# Create EventBridge permissions policy
+resource "aws_iam_policy" "eventbridge_access_policy" {
+  name        = "flaskr_eventbridge_access_policy"
+  description = "Policy to allow ECS tasks to manage EventBridge rules and targets"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "events:PutRule",
+          "events:PutTargets",
+          "events:DeleteRule",
+          "events:RemoveTargets",
+          "events:DescribeRule",
+          "events:ListTargetsByRule"
+        ],
+        Resource = [
+          "arn:aws:events:${var.region}:${data.aws_caller_identity.current.account_id}:rule/live-match-monitoring"
+        ]
+      }
+    ]
+  })
+}
+
+# Attach EventBridge permissions policy to ECS task role
+resource "aws_iam_role_policy_attachment" "ecs_task_eventbridge_policy" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.eventbridge_access_policy.arn
 }
 
 # Define local variables for database connection and container definitions
