@@ -11,7 +11,24 @@ class TaskScheduler:
     def schedule_match_monitoring(self):
         """Schedule match monitoring task"""
         try:
-            # AWS EventBridge rule for live match monitoring (every 5 minutes)
+            # Check if Lambda ARN is configured
+            if 'MONITOR_LAMBDA_ARN' not in current_app.config:
+                current_app.logger.warning("MONITOR_LAMBDA_ARN not configured, using in-process monitoring instead")
+                
+                # Set up a simple rule without a Lambda target
+                self.eventbridge.put_rule(
+                    Name='live-match-monitoring',
+                    ScheduleExpression='rate(5 minutes)',
+                    State='ENABLED',
+                    Description='Monitor live matches and process completed ones'
+                )
+                
+                # You could potentially set up a different target here if needed
+                # Or just log that you're skipping the target setup
+                current_app.logger.info("EventBridge rule created without Lambda target")
+                return
+                
+            # Original code for when Lambda ARN is available
             self.eventbridge.put_rule(
                 Name='live-match-monitoring',
                 ScheduleExpression='rate(5 minutes)',
@@ -19,7 +36,6 @@ class TaskScheduler:
                 Description='Monitor live matches and process completed ones'
             )
 
-            # Add target to invoke the Lambda function
             self.eventbridge.put_targets(
                 Rule='live-match-monitoring',
                 Targets=[{
@@ -29,7 +45,7 @@ class TaskScheduler:
                 }]
             )
 
-            current_app.logger.info("Successfully scheduled match monitoring task")
+            current_app.logger.info("Successfully scheduled match monitoring task with Lambda target")
 
         except Exception as e:
             current_app.logger.error(f"Error scheduling tasks: {str(e)}")
